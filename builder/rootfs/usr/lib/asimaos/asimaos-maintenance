@@ -1,0 +1,84 @@
+#!/usr/bin/bash
+# Asima OS self-maintenance (docs/architecture.md §12). Results go to /var/lib/asimaos/maintenance/NAME.json,
+# shown by Asima Maintenance (Health).
+#
+#   asimaos-maintenance scrub     weekly, on AC power: reads every block and checks it; metadata is
+#                                repaired from its second copy; damaged files are listed so they
+#                                can be restored from a backup or a snapshot
+#   asimaos-maintenance balance   monthly: gives back block groups that are less than 20 % used
+#   asimaos-maintenance ssd       weekly: SSD wear (data written, percentage used) from SMART
+set -u
+OUT=/var/lib/asimaos/maintenance
+POOL=/var        # any mount of the pool covers the whole pool
+
+json_str() {
+    local s=${1//\\/\\\\}
+    s=${s//\"/\\\"}
+    printf '"%s"' "${s//$'\n'/ }"
+}
+
+save() {  # NAME JSON
+    mkdir -p "${OUT}"
+    printf '%s\n' "$2" > "${OUT}/$1.json.new" && mv -f "${OUT}/$1.json.new" "${OUT}/$1.json"
+}
+
+scrub() {
+    local out rc bad fixed files
+    # Exit status 3: errors that could not be repaired.
+    out=$(btrfs scrub start -B "${POOL}" 2>&1); rc=$?
+    read -r bad fixed < <(awk '
+        /Error summary:/ && !/no errors found/ { found = 1 }
+        /Uncorrectable:/ { bad += $2 }
+        /Corrected:/ { fixed += $2 }
+        END { if (found && bad + fixed == 0) bad = 1; print bad + 0, fixed + 0 }' <<<"${out}")
+    # The kernel names the files it could not repair.
+    files=$(journalctl -k -b --since "-1d" -o cat 2>/dev/null | sed -n 's/.*checksum error.*(path: \(.*\)).*/\1/p' | sort -u | head -n 20 | paste -sd,)
+    if (( rc == 0 && bad == 0 )); then
+        save scrub "{\"ok\": true, \"detail\": \"\", \"at\": $(date +%s), \"uncorrectable\": 0, \"corrected\": ${fixed}}"
+    else
+        save scrub "{\"ok\": false, \"detail\": $(json_str "${files:-${out##*$'\n'}}"), \"at\": $(date +%s), \"uncorrectable\": ${bad}, \"corrected\": ${fixed}}"
+    fi
+    echo "${out}"
+    return "${rc}"
+}
+
+balance() {
+    local out rc
+    out=$(btrfs balance start -dusage=20 -musage=20 "${POOL}" 2>&1); rc=$?
+    save balance "{\"ok\": $( ((rc == 0)) && echo true || echo false ), \"detail\": $(json_str "${out##*$'\n'}"), \"at\": $(date +%s)}"
+    echo "${out}"
+    return "${rc}"
+}
+
+ssd() {
+    local dev j used written worst=0 total=0 disks=() name
+    for dev in /dev/nvme[0-9]n1 /dev/sd[a-z]; do
+        [[ -b ${dev} ]] || continue
+        [[ $(cat "/sys/class/block/${dev##*/}/queue/rotational" 2>/dev/null) == 0 ]] || continue
+        j=$(smartctl -j -a "${dev}" 2>/dev/null) || [[ -n ${j} ]] || continue
+        used=$(jq -r '.nvme_smart_health_information_log.percentage_used
+                      // ((.ata_device_statistics.pages[]?.table[]? | select(.name == "Percentage Used Endurance Indicator") | .value) // empty)
+                      // empty' <<<"${j}" 2>/dev/null | head -n1)
+        # NVMe: units of 1,000 × 512 bytes. SATA: Total_LBAs_Written × logical block size.
+        written=$(jq -r '(.nvme_smart_health_information_log.data_units_written // empty | . * 512000)
+                         // ((.ata_smart_attributes.table[]? | select(.id == 241) | .raw.value) * (.logical_block_size // 512))
+                         // empty' <<<"${j}" 2>/dev/null | head -n1)
+        name=$(jq -r '.model_name // "SSD"' <<<"${j}" 2>/dev/null)
+        [[ ${used} =~ ^[0-9]+$ ]] || used=0
+        [[ ${written} =~ ^[0-9]+$ ]] || written=0
+        (( used > worst )) && worst=${used}
+        total=$(( total + written ))
+        disks+=("{\"device\": $(json_str "${dev}"), \"model\": $(json_str "${name}"), \"percentageUsed\": ${used}, \"bytesWritten\": ${written}}")
+    done
+    (( ${#disks[@]} )) || return 0      # no SSD: nothing to log
+    local IFS=,
+    save ssd "{\"ok\": $( ((worst < 90)) && echo true || echo false ), \"percentageUsed\": ${worst}, \"bytesWritten\": ${total}, \"at\": $(date +%s), \"disks\": [${disks[*]}]}"
+    cat "${OUT}/ssd.json"
+}
+
+case ${1:-} in
+    scrub) scrub ;;
+    balance) balance ;;
+    ssd) ssd ;;
+    *) echo "usage: asimaos-maintenance scrub|balance|ssd" >&2; exit 2 ;;
+esac

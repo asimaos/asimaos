@@ -1,0 +1,13 @@
+#%PAM-1.0
+# Asima OS: the lock screen's password service (kscreenlocker), as Plasma ships it. Face unlock
+# is its own method next to the password: Plasma's kde-face service, whose file asimaos-faced puts
+# in place while a face is set up (D47). A fingerprint unlocks through KDE's own kde-fingerprint
+# service. Administrator tasks use polkit-1 (buttons) or sudo (password).
+
+auth       include      system-local-login
+
+account    include      system-local-login
+
+password   include      system-local-login
+
+session    include      system-local-login

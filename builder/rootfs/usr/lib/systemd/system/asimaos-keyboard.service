@@ -1,0 +1,11 @@
+# Asima OS (initramfs only): the keyboard layout for the start-up passphrase, set before Plymouth
+# and the console start (/usr/lib/asimaos/asimaos-keyboard).
+[Unit]
+Description=Keyboard layout for the start-up passphrase
+DefaultDependencies=no
+ConditionPathExists=/etc/initrd-release
+Before=plymouth-start.service systemd-vconsole-setup.service sysinit.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/asimaos/asimaos-keyboard --initrd

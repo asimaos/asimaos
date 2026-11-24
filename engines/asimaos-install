@@ -1,0 +1,5 @@
+#!/usr/bin/bash
+# asimaos-install: the installer (the Asima OS Installer's engine; on the ISO, never in the installed /usr).
+# The work is done by asimaos-engine (services/asimaos-engine), which sits next to this file;
+# `asimaos-install --help` lists the options.
+exec "${ASIMAOS_ENGINE:-$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/asimaos-engine}" install "$@"

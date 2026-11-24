@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Install Asima OS
+GenericName=System Installer
+Comment=Install Asima OS on this computer
+Exec=asimaos-installer --fullscreen
+Icon=io.github.asimaos.Installer
+Terminal=false
+Categories=System;
+Keywords=install;setup;disk;
+StartupNotify=true

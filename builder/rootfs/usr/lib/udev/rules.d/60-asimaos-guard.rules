@@ -1,0 +1,4 @@
+# Asima OS disk guard: GUI disk tools never offer the Asima OS disk's partitions (the
+# ESP and the pool, opened or not), so they can't be formatted or deleted with a few clicks.
+SUBSYSTEM=="block", ENV{ID_PART_ENTRY_NAME}=="ESP|crypt_pool|asimaos_pool", ENV{UDISKS_SYSTEM}="1", ENV{UDISKS_IGNORE}="1"
+SUBSYSTEM=="block", ENV{DM_NAME}=="crypt_pool", ENV{UDISKS_SYSTEM}="1", ENV{UDISKS_IGNORE}="1"

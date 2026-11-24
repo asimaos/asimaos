@@ -1,0 +1,115 @@
+#!/usr/bin/bash
+# Asima OS boot health (docs/architecture.md §8). A start only counts as good (systemd-bless-boot marks the
+# start menu entry) after these checks pass, so a version that starts badly goes back to the
+# previous one by itself:
+#
+#   asimaos-health core      /usr verified by dm-verity, the /etc overlay, the Btrfs pool and the
+#                           security modules (asimaos-core-health.service)
+#   asimaos-health desktop   the login screen (plasma-login-manager, D11) or an automatic sign-in
+#                           shows on seat0 and stays up for 15 s, and the core services run
+#                           (asimaos-desktop-health.service)
+#   asimaos-health timeout   15 minutes after the start: the start never completed
+#                           (asimaos-boot-timeout.timer)
+#
+# During a trial start (a new version with tries left: systemd-boot sets LoaderBootCountPath) a
+# failed check restarts the computer, so the start menu counts the failed try; after three, the
+# backup version starts and becomes current again. Outside a trial start nothing restarts: the
+# result is only kept for Asima Maintenance in /run/asimaos/health/NAME.json. A monitor that is
+# switched off or unplugged never counts as a failure.
+set -u
+TRIAL=/sys/firmware/efi/efivars/LoaderBootCountPath-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+OUT=/run/asimaos/health
+
+result() {  # NAME true|false DETAIL
+    mkdir -p "${OUT}"
+    local detail=${3//\\/\\\\}
+    printf '{"ok": %s, "detail": "%s", "at": %s}\n' "$2" "${detail//\"/\\\"}" "$(date +%s)" > "${OUT}/$1.json"
+}
+
+# A failed start is also kept on disk (/var/lib/asimaos/failed-starts, the newest 10), so Asima
+# Maintenance → Health can say later which version failed and why.
+record() {  # NAME DETAIL
+    local dir=/var/lib/asimaos/failed-starts version detail=${2//\\/\\\\} f
+    version=$(sed -n 's/^IMAGE_VERSION=//p' /usr/lib/os-release)
+    mkdir -p "${dir}" 2>/dev/null || return 0
+    printf '{"at": %s, "version": "%s", "check": "%s", "detail": "%s", "trial": %s, "boot": "%s"}\n' \
+        "$(date +%s)" "${version}" "$1" "${detail//\"/\\\"}" "$([[ -e ${TRIAL} ]] && echo true || echo false)" \
+        "$(cat /proc/sys/kernel/random/boot_id)" > "${dir}/$(date +%s)-$1.json" 2>/dev/null || return 0
+    for f in $(ls -1 "${dir}" | sort -r | tail -n +11); do rm -f "${dir}/${f}"; done
+}
+
+fail() {  # NAME DETAIL
+    echo "asimaos-health: $1: $2" >&2
+    result "$1" false "$2"
+    record "$1" "$2"
+    if [[ -e ${TRIAL} ]]; then
+        echo "asimaos-health: this start of a new version failed; restarting so the start menu counts it" >&2
+        sleep 5
+        systemctl --no-block reboot
+    fi
+    exit 1
+}
+
+core() {
+    local lsm missing="" m
+    dmsetup status usr 2>/dev/null | grep -q ' verity V' || fail core "the system files (/usr) are not verified by dm-verity"
+    [[ $(findmnt -n -o FSTYPE /usr) == erofs ]] || fail core "/usr is not the Asima OS image"
+    [[ $(findmnt -n -o FSTYPE /etc) == overlay ]] || fail core "/etc is not set up"
+    for m in /var /home; do
+        [[ $(findmnt -n -o FSTYPE "${m}") == btrfs ]] || fail core "${m} is not mounted"
+    done
+    lsm=$(cat /sys/kernel/security/lsm 2>/dev/null)
+    for m in landlock lockdown yama apparmor bpf; do
+        [[ ,${lsm}, == *,${m},* ]] || missing+=" ${m}"
+    done
+    [[ -z ${missing} ]] || fail core "security modules not active:${missing}"
+    result core true ""
+}
+
+# The active session on seat0 when it is graphical (the login screen or a desktop).
+seat_session() {
+    local id type
+    id=$(loginctl show-seat seat0 -P ActiveSession 2>/dev/null) && [[ -n ${id} ]] || return 1
+    type=$(loginctl show-session "${id}" -P Type 2>/dev/null)
+    [[ ${type} == wayland || ${type} == x11 ]] && echo "${id}"
+}
+
+wait_for() {  # SECONDS COMMAND...
+    local i
+    for (( i = 0; i < $1; i++ )); do
+        "${@:2}" >/dev/null 2>&1 && return 0
+        sleep 1
+    done
+    "${@:2}" >/dev/null 2>&1
+}
+
+desktop() {
+    local state restarts u
+    state=$(systemctl show -P LoadState display-manager.service 2>/dev/null)
+    [[ ${state} == loaded ]] || fail desktop "there is no login screen (display-manager.service is ${state:-missing})"
+    wait_for 90 systemctl -q is-active display-manager.service || fail desktop "the login screen did not start"
+    wait_for 90 seat_session || fail desktop "the login screen did not appear"
+    restarts=$(systemctl show -P NRestarts display-manager.service)
+    sleep 15
+    systemctl -q is-active display-manager.service \
+        && [[ $(systemctl show -P NRestarts display-manager.service) == "${restarts}" ]] \
+        || fail desktop "the login screen stopped or restarted"
+    wait_for 10 seat_session || fail desktop "the login screen did not stay up"
+    for u in dbus.service systemd-logind.service polkit.service systemd-journald.service; do
+        ! systemctl -q is-failed "${u}" || fail desktop "${u} failed"
+    done
+    result desktop true ""
+}
+
+timeout() {
+    systemctl -q is-active boot-complete.target && return 0
+    [[ -e ${TRIAL} ]] || return 0
+    fail start "the start did not complete within 15 minutes"
+}
+
+case ${1:-} in
+    core) core ;;
+    desktop) desktop ;;
+    timeout) timeout ;;
+    *) echo "usage: asimaos-health core|desktop|timeout" >&2; exit 2 ;;
+esac

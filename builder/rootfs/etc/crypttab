@@ -1,0 +1,5 @@
+# <name>     <device>                            <key>  <options>
+# Asima OS: no entries. The pool is unlocked in the initramfs by asimaos-early-mount, which picks
+# the pool on the disk the computer started from and unlocks it only when it is encrypted
+# (partition label crypt_pool); a pool installed without encryption (asimaos_pool, D9) is mounted
+# directly.

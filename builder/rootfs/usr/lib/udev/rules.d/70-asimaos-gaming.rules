@@ -1,0 +1,15 @@
+# Asima OS: game controllers for everyone (D26). Runs before 73-seat-late.rules, which turns
+# "uaccess" into access for the person at the computer only (never for remote or background
+# users).
+
+# Steam Input and other controller tools make virtual controllers through /dev/uinput.
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess"
+
+# Steam Input talks to some controllers directly (hidraw) for gyro, touchpads and the back
+# buttons: Valve (28DE), Sony (054C), Nintendo (057E), 8BitDo (2DC8), Hori (0F0D). systemd already
+# gives their joystick side to the person at the computer. KERNELS matches over USB and
+# Bluetooth alike (bus:vendor:product.n).
+SUBSYSTEM=="hidraw", KERNELS=="*:28DE:*|*:054C:*|*:057E:*|*:2DC8:*|*:0F0D:*", TAG+="uaccess"
+
+# The rumble strength chosen in Asima Gaming (/etc/asimaos/gaming.conf), on every controller as it connects.
+ACTION=="add", SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_INPUT_JOYSTICK}=="1", RUN+="/usr/lib/asimaos/asimaos-gamingd --rumble-gain /dev/input/%k"

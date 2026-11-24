@@ -1,0 +1,9 @@
+[Unit]
+Description=Asima OS: check 15 minutes after the start that it completed
+
+[Timer]
+OnBootSec=15min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

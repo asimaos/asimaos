@@ -1,0 +1,12 @@
+[Unit]
+Description=Asima OS: the lock screen's Face button while a face is set up
+Documentation=file:///usr/share/doc/asimaos/DESIGN.md
+ConditionDirectoryNotEmpty=/var/lib/asimaos-face
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/asimaos/asimaos-faced --sync-lock-screen
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

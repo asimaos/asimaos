@@ -1,0 +1,104 @@
+#!/usr/bin/bash
+# Asima OS: TPM unlock with systemd-pcrlock (PCR 4 + PCR 7). The disk key is sealed to a
+# policy kept in the TPM (an NV index) that allows the boot chains in the start menu: shim, the
+# boot loader and each version's boot image (PCR 4, measured by the firmware) with Secure Boot as it
+# is (PCR 7). Asima Rescue's boot image is never allowed, so Rescue can't open the disk. PCR 0 and
+# 2 (the firmware) are left out, so firmware updates don't break it.
+#
+#   asimaos-pcrlock refresh          bring the policy up to date with what may start (does nothing
+#                                   when TPM unlock uses no pcrlock policy here)
+#   asimaos-pcrlock refresh --init   the same, also when there is no policy yet (Asima Maintenance,
+#                                   before systemd-cryptenroll --tpm2-pcrlock=)
+#   asimaos-pcrlock remove           delete the policy (TPM unlock switched off)
+#
+# The ESP must be mounted at /boot: the callers (asimaos-maintenanced, asimaos-updaterd) run in a
+# mount namespace where it is. systemd-pcrlock also writes a copy of the policy to the ESP
+# (/loader/credentials/), which systemd-stub hands to the initramfs (asimaos-early-mount).
+set -euo pipefail
+shopt -s nullglob
+PCRLOCK=/usr/lib/systemd/systemd-pcrlock
+JSON=/var/lib/systemd/pcrlock.json
+D=/var/lib/pcrlock.d
+ESP=/boot
+SLOTS=/run/initramfs/slots
+log() { echo "asimaos-pcrlock: $*" >&2; }
+
+# The variants of one component: one .pcrlock file per binary (named after its content), the ones
+# no longer present are removed. KIND: pe (shim, boot loader) or uki (a boot image).
+lock_set() {  # COMPONENT KIND FILE...
+    local comp=$1 kind=$2 dir f name
+    shift 2
+    dir="${D}/${comp}.pcrlock.d"
+    mkdir -p "${dir}"
+    local -A keep=()
+    for f in "$@"; do
+        [[ -f ${f} ]] || continue
+        name="$(sha256sum "${f}" | cut -c1-16).pcrlock"
+        keep[${name}]=1
+        [[ -f ${dir}/${name} ]] && continue
+        if [[ ${kind} == uki ]]; then
+            "${PCRLOCK}" lock-uki --pcrlock="${dir}/${name}.tmp" "${f}"
+        else
+            "${PCRLOCK}" lock-pe --pcr=4 --pcrlock="${dir}/${name}.tmp" "${f}"
+        fi
+        mv -f "${dir}/${name}.tmp" "${dir}/${name}"
+        log "${comp}: allowed ${f#"${ESP}"}"
+    done
+    for f in "${dir}"/*.pcrlock; do
+        [[ -n ${keep[$(basename "${f}")]:-} ]] || { rm -f "${f}"; log "${comp}: removed an old variant"; }
+    done
+    rmdir "${dir}" 2>/dev/null || true
+}
+
+refresh() {
+    if [[ ! -f ${JSON} && ${1:-} != --init ]]; then
+        exit 0
+    fi
+    mountpoint -q "${ESP}" || { log "the ESP is not mounted at ${ESP}"; exit 1; }
+
+    # PCR 7: the Secure Boot variables (predicted for the next start) and the certificates that
+    # verified this start (from the firmware's event log).
+    "${PCRLOCK}" lock-secureboot-policy
+    "${PCRLOCK}" lock-secureboot-authority
+
+    # PCR 4: what may start. With shim (Secure Boot through the Asima OS key), the firmware
+    # starts shim as EFI/BOOT/BOOTX64.EFI and shim starts systemd-boot as grubx64.efi; without it,
+    # systemd-boot is BOOTX64.EFI. A new boot loader or shim from an update waits in the slots and
+    # starts once from EFI/asimaos/trial (asimaos-updaterd), so those are allowed too.
+    local shims=() loaders=() ukis=() e uki
+    if [[ -f ${ESP}/EFI/BOOT/grubx64.efi ]]; then
+        shims=("${ESP}/EFI/BOOT/BOOTX64.EFI" "${ESP}/EFI/asimaos/trial/shimx64.efi" "${SLOTS}"/staged/*/shimx64.efi)
+        loaders=("${ESP}/EFI/BOOT/grubx64.efi" "${ESP}/EFI/asimaos/trial/grubx64.efi" "${SLOTS}"/staged/*/systemd-bootx64.efi)
+    else
+        loaders=("${ESP}/EFI/BOOT/BOOTX64.EFI" "${ESP}/EFI/asimaos/trial/systemd-bootx64.efi" "${SLOTS}"/staged/*/systemd-bootx64.efi)
+    fi
+    # Each version in the start menu (current, backup, a failed update), never Asima Rescue.
+    for e in "${ESP}"/loader/entries/asimaos-*.conf; do
+        [[ $(basename "${e}") == asimaos-rescue.conf ]] && continue
+        uki=$(sed -n 's#^uki[[:space:]]*##p' "${e}" | head -n1)
+        [[ -n ${uki} ]] && ukis+=("${ESP}${uki}")
+    done
+    ((${#ukis[@]})) || { log "no Asima OS version in the start menu"; exit 1; }
+
+    lock_set 630-asimaos-shim pe "${shims[@]}"
+    lock_set 640-asimaos-boot-loader pe "${loaders[@]}"
+    lock_set 650-asimaos-uki uki "${ukis[@]}"
+
+    "${PCRLOCK}" make-policy --pcr=4 --pcr=7
+}
+
+remove() {
+    "${PCRLOCK}" remove-policy || true
+    rm -rf "${D}"/630-asimaos-shim.pcrlock.d "${D}"/640-asimaos-boot-loader.pcrlock.d "${D}"/650-asimaos-uki.pcrlock.d
+    "${PCRLOCK}" unlock-secureboot-policy || true
+    "${PCRLOCK}" unlock-secureboot-authority || true
+    if mountpoint -q "${ESP}"; then
+        rm -f "${ESP}"/loader/credentials/pcrlock.*.cred
+    fi
+}
+
+case ${1:-} in
+    refresh) refresh "${2:-}" ;;
+    remove) remove ;;
+    *) echo "usage: asimaos-pcrlock refresh [--init] | remove" >&2; exit 2 ;;
+esac

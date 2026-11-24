@@ -1,0 +1,17 @@
+# Asima OS: a start only counts as good when the system files and the security set-up are right
+# (docs/architecture.md §8). See /usr/lib/asimaos/asimaos-health.
+[Unit]
+Description=Asima OS health check: system files and security
+Documentation=file:///usr/lib/asimaos/asimaos-health
+After=local-fs.target sys-kernel-security.mount
+Before=boot-complete.target
+ConditionKernelCommandLine=!asimaos.live
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/asimaos/asimaos-health core
+
+[Install]
+WantedBy=multi-user.target
+RequiredBy=boot-complete.target

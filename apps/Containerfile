@@ -1,0 +1,18 @@
+# Asima OS userspace builder: the Qt 6 toolchain for the apps and Rust for the system services, pinned
+# to the same Arch archive snapshot as the OS. Includes Xvfb + Mesa (software GL) so every screen can
+# be rendered to a screenshot headlessly, and dbus + gnupg + tar for the services' tests.
+FROM docker.io/archlinux/archlinux:base
+
+COPY pacman.conf /etc/pacman.conf
+
+# /hostcache: the OS build's package cache (build/pkgcache, same snapshot), mounted read-only by
+# apps/build.sh when it exists, so packages already downloaded aren't fetched again. Slow mirrors
+# get all the time they need.
+RUN mkdir -p /hostcache && pacman -Syuu --noconfirm --disable-download-timeout \
+        --cachedir /var/cache/pacman/pkg --cachedir /hostcache \
+        gcc cmake ninja pkgconf \
+        qt6-base qt6-declarative qt6-svg qt6-tools polkit-qt6 \
+        breeze-icons noto-fonts noto-fonts-cjk \
+        xorg-server-xvfb xorg-xauth mesa \
+        rust dbus gnupg tar \
+    && pacman -Scc --noconfirm

@@ -1,0 +1,26 @@
+# After a start that counts as good: the start menu settles (a working backup becomes current
+# again after a failed update), and an update's boot loader and Asima Rescue are installed.
+#
+# DefaultDependencies=no, like systemd-bless-boot.service: otherwise multi-user.target would wait
+# for this unit, which waits for boot-complete.target, which waits for the login-screen check
+# after graphical.target: an ordering loop that systemd breaks by dropping the blessing itself.
+[Unit]
+Description=Asima OS: after a good start (start menu roles, boot loader and Rescue from an update)
+Documentation=file:///usr/share/doc/asimaos/DESIGN.md
+DefaultDependencies=no
+Requires=boot-complete.target
+After=boot-complete.target systemd-bless-boot.service sysinit.target basic.target local-fs.target
+Before=shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/asimaos/asimaos-updaterd --finish-update
+PrivateMounts=yes
+NoNewPrivileges=yes
+ProtectHome=yes
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

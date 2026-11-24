@@ -1,0 +1,62 @@
+#!/usr/bin/bash
+# Asima OS: the keyboard layout for the start-up passphrase.
+#
+# The passphrase is typed before the system and its settings are open, so the layout travels in
+# a small EFI variable: "AsimaKeyboard", three words "<console keymap> <XKB layout> <variant|->".
+# The layouts themselves are inside the signed boot image (all XKB layouts come with Plymouth,
+# all console keymaps with the asimaos hook); the variable only names one, and a name that isn't
+# in the image is ignored, so nothing unsigned is ever loaded.
+#
+#   asimaos-keyboard --initrd   (initramfs, before Plymouth) write /etc/vconsole.conf from it
+#   asimaos-keyboard --sync     (installed system, installer) store /etc/vconsole.conf's layout
+set -uo pipefail
+
+VAR=/sys/firmware/efi/efivars/AsimaKeyboard-40956354-ea4c-4e70-bb8d-f7d55625a8bf
+CONF=${ASIMAOS_KEYBOARD_CONF:-/etc/vconsole.conf}
+NAME='^[A-Za-z0-9_.-]{1,40}$'
+
+kbd_keymap_exists() {
+    [[ -n $(find /usr/share/kbd/keymaps -type f \( -name "$1.map" -o -name "$1.map.gz" -o -name "$1.map.zst" \) -print -quit 2>/dev/null) ]]
+}
+
+case ${1:-} in
+--initrd)
+    [[ -f ${VAR} ]] || exit 0
+    read -r keymap layout variant < <(tail -c +5 "${VAR}" | head -c 200 | tr -cd 'A-Za-z0-9_. -')
+    [[ ${layout:-} =~ ${NAME} && -f /usr/share/X11/xkb/symbols/${layout} ]] || exit 0
+    [[ ${variant:-} =~ ${NAME} && ${variant} != - ]] || variant=""
+    [[ ${keymap:-} =~ ${NAME} ]] && kbd_keymap_exists "${keymap}" || keymap=us
+    printf 'KEYMAP=%s\nXKBLAYOUT=%s\nXKBVARIANT=%s\n' "${keymap}" "${layout}" "${variant}" > /etc/vconsole.conf
+    echo "asimaos-keyboard: start-up keyboard layout ${layout}${variant:+ (${variant})}, console ${keymap}"
+    ;;
+--sync)
+    [[ -d /sys/firmware/efi/efivars ]] || exit 0
+    keymap=$(sed -n 's/^KEYMAP=//p' "${CONF}" 2>/dev/null | tr -d '"' | head -n1)
+    layout=$(sed -n 's/^XKBLAYOUT=//p' "${CONF}" 2>/dev/null | tr -d '"' | cut -d, -f1 | head -n1)
+    variant=$(sed -n 's/^XKBVARIANT=//p' "${CONF}" 2>/dev/null | tr -d '"' | cut -d, -f1 | head -n1)
+    [[ ${layout} =~ ${NAME} ]] || layout=us
+    [[ ${keymap} =~ ${NAME} ]] || keymap=us
+    [[ ${variant} =~ ${NAME} ]] || variant=-
+    want="${keymap} ${layout} ${variant}"
+    have=$( [[ -f ${VAR} ]] && tail -c +5 "${VAR}" )
+    [[ ${have} == "${want}" ]] && exit 0
+    if [[ ${want} == "us us -" ]]; then          # the default needs no variable
+        [[ -f ${VAR} ]] && { chattr -i "${VAR}" 2>/dev/null; rm -f "${VAR}"; }
+        exit 0
+    fi
+    tmp=$(mktemp)
+    { printf '\x07\x00\x00\x00'; printf '%s' "${want}"; } > "${tmp}"
+    [[ -f ${VAR} ]] && chattr -i "${VAR}" 2>/dev/null
+    # efivarfs takes a variable in one single write.
+    if dd if="${tmp}" of="${VAR}" bs=4096 count=1 status=none 2>/dev/null; then
+        echo "asimaos-keyboard: start-up keyboard layout is now ${layout}"
+    else
+        echo "asimaos-keyboard: the firmware did not take the keyboard layout" >&2
+    fi
+    rm -f "${tmp}"
+    ;;
+*)
+    echo "usage: asimaos-keyboard --initrd | --sync" >&2
+    exit 2
+    ;;
+esac

@@ -1,0 +1,6 @@
+# D-Bus activation: the service starts when Asima Gaming first calls it.
+[D-BUS Service]
+Name=io.github.asimaos.Gaming1
+Exec=/bin/false
+User=root
+SystemdService=asimaos-gamingd.service

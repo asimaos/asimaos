@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Asima Updater
+GenericName=System Updater
+Comment=Install Asima OS update files and choose which version starts
+Exec=asimaos-updater %f
+MimeType=application/x-asimaos-update;
+Icon=io.github.asimaos.Updater
+Terminal=false
+Categories=System;Settings;
+Keywords=update;upgrade;rollback;version;reinstall;aosupd;
+StartupNotify=true

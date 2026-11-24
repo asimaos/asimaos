@@ -1,0 +1,7 @@
+#!/usr/bin/bash
+# Asima OS game mode's one program: Flatpak Steam in Big Picture. Without Steam, Discover opens
+# on its page; the session ends when that window closes.
+if flatpak info com.valvesoftware.Steam >/dev/null 2>&1; then
+    exec flatpak run com.valvesoftware.Steam -gamepadui
+fi
+exec plasma-discover appstream://com.valvesoftware.Steam

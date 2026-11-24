@@ -1,0 +1,15 @@
+[Unit]
+Description=Asima Gaming: a game controller as mouse and keyboard on the desktop
+Documentation=file:///usr/share/doc/asimaos/DESIGN.md
+# Switched on and off in Asima Gaming (systemctl --user enable/disable --now). It pauses while
+# Steam or a game runs.
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/lib/asimaos/asimaos-gamingd --controller-mouse
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

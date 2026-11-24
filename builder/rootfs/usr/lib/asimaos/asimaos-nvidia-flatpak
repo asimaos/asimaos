@@ -1,0 +1,34 @@
+#!/usr/bin/bash
+# Asima OS: Flatpak apps (Steam, Heroic, Lutris…) use the NVIDIA driver only through Flathub's
+# extension of the very same version (org.freedesktop.Platform.GL.nvidia-X-Y-Z). After an update
+# brings a new driver, `flatpak update` installs the matching one (and updates the apps with it).
+# Runs at every start (asimaos-nvidia-flatpak.service) and does something only when the driver in
+# use has a version it hasn't handled yet; offline, it tries again at the next start.
+set -uo pipefail
+STATE=/var/lib/asimaos/nvidia-flatpak
+
+[[ -r /sys/module/nvidia/version ]] || exit 0          # no NVIDIA driver in use
+version=$(tr -d '[:space:]' < /sys/module/nvidia/version)
+[[ ${version} =~ ^[0-9]+(\.[0-9]+)+$ ]] || exit 0
+[[ $(cat "${STATE}" 2>/dev/null) == "${version}" ]] && exit 0
+# Nothing to do without system-wide Flatpak apps.
+flatpak list --system --app --columns=application 2>/dev/null | grep -q . || { echo "${version}" > "${STATE}"; exit 0; }
+
+echo "asimaos-nvidia-flatpak: NVIDIA driver ${version}: updating Flatpak for its matching extension"
+if ! nm-online -q --timeout=120; then
+    echo "asimaos-nvidia-flatpak: no network; trying again at the next start"
+    exit 0
+fi
+if flatpak update --system --noninteractive -y; then
+    ref="org.freedesktop.Platform.GL.nvidia-${version//./-}"
+    if flatpak list --system --runtime --columns=application | grep -qx "${ref}"; then
+        echo "asimaos-nvidia-flatpak: ${ref} is installed"
+    else
+        echo "asimaos-nvidia-flatpak: Flathub has no ${ref} yet; trying again at the next start"
+        exit 0
+    fi
+    mkdir -p "${STATE%/*}"
+    echo "${version}" > "${STATE}"
+else
+    echo "asimaos-nvidia-flatpak: flatpak update failed (offline?); trying again at the next start"
+fi

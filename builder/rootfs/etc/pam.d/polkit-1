@@ -1,0 +1,11 @@
+#%PAM-1.0
+# Asima OS: administrator tasks in the password dialog (polkit). A fingerprint or a face approves
+# only when the person tapped its button in the Asima OS password dialog (D37): the dialog then sends
+# a one-time token from asimaos-faced in place of the password, and pam_asimaos_face checks it.
+# A typed password goes on to pam_unix unchanged. sudo keeps the password only (/etc/pam.d/sudo).
+
+-auth      sufficient   pam_asimaos_face.so      use=admin
+auth       include      system-auth
+account    include      system-auth
+password   include      system-auth
+session    include      system-auth

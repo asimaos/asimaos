@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Asima Maintenance
+GenericName=System Maintenance
+Comment=Health, security, snapshots and backups, system changes and reset of Asima OS
+Exec=asimaos-maintenance
+Icon=io.github.asimaos.Maintenance
+Terminal=false
+Categories=System;Settings;
+Keywords=health;backup;snapshot;restore;secure boot;tpm;recovery;passphrase;reset;etc;flatpak;clean;
+StartupNotify=true

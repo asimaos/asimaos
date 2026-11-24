@@ -1,0 +1,3 @@
+# GPU passthrough (Asima Dev): the person at the computer may use the VFIO groups, so virtual
+# machines in their own libvirt session can take the graphics card kept for them.
+SUBSYSTEM=="vfio", KERNEL!="vfio", TAG+="uaccess"

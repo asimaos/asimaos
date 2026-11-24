@@ -1,0 +1,14 @@
+[Unit]
+Description=Asima OS: restore a folder from the backup (restic)
+Documentation=file:///usr/share/doc/asimaos/DESIGN.md
+ConditionPathExists=/etc/asimaos/backup.conf
+ConditionPathExists=/var/lib/asimaos/backup/restore-request.json
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/asimaos/asimaos-maintenanced --restore-run
+# It writes one new folder into a home ("Restored YYYY-MM-DD"); it never changes existing files.
+Nice=10
+IOSchedulingClass=idle

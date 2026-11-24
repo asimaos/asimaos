@@ -1,0 +1,103 @@
+#!/usr/bin/bash
+# Asima OS: Asima Maintenance → System changes → "Reset settings", the person's part. The
+# desktop goes back to plain KDE as shipped (D48): its settings, those of the apps that come with
+# Asima OS, and the add-ons installed since (themes, colour schemes, icons, cursors,
+# wallpapers, widgets, KWin scripts, Dolphin's service menus). Nothing is deleted: the old files
+# move to ~/.local/share/asimaos/old-settings/<date>/ (the newest three are kept). The system's part (/etc) is done by the initramfs before that
+# (asimaos-maintenanced lists the files in @data/flags/reset-settings-etc).
+#
+#   asimaos-reset-settings users FILE   root, before the login screen (asimaos-reset-settings.service):
+#                                      runs "home" as each person named in FILE, then removes FILE
+#   asimaos-reset-settings home         as the person: resets their settings
+#
+# Kept: files, fonts, KDE Wallet, the language, keyboard layouts and input methods, Plasma Vaults,
+# the apps' menu entries, and every other app's settings (Flatpak apps in ~/.var/app, Nix, snaps,
+# Steam).
+set -uo pipefail
+shopt -s nullglob dotglob
+
+log() { echo "asimaos-reset-settings: $*" >&2; }
+
+# ~/.config: the desktop's and the preinstalled apps' settings (KDE keeps most in files named *rc).
+CONFIG_KEEP=(plasma-localerc kxkbrc plasmavaultrc kwalletrc)
+CONFIG_ALSO=(kdeglobals kwinoutputconfig.json mimeapps.list Trolltech.conf QtProject.conf gtkrc gtkrc-2.0
+    kdedefaults plasma-workspace kde.org KDE session autostart gtk-3.0 gtk-4.0 xsettingsd fontconfig
+    menus kdeconnect kate haruna pipewire wireplumber pulse asimaos)
+# ~/.local/share and ~/.local/state: Konsole's profiles, toolbars, Dolphin's places and views, the
+# display layout, System Monitor's pages, the sound devices' state, every app's *staterc; and the
+# add-ons (Plasma's themes and widgets, colour schemes, window decorations, KWin scripts and
+# effects, icons and cursors, wallpapers, GTK themes, service menus, and the list of what
+# "Get New Stuff" installed).
+SHARE_ALSO=(konsole kxmlgui5 user-places.xbel kscreen plasma-systemmonitor dolphin
+    plasma color-schemes aurorae kwin icons wallpapers themes kio/servicemenus knewstuff3)
+STATE_ALSO=(wireplumber)
+# The older places for icons, cursors and GTK themes, right in the home folder.
+HOME_ALSO=(.icons .themes)
+
+home() {
+    local stamp old rel f name keep unit
+    [[ -n ${HOME:-} && -d ${HOME} && ${HOME} != / ]] || { log "no home folder"; exit 1; }
+    stamp=$(date +%Y-%m-%d-%H%M%S)
+    old="${HOME}/.local/share/asimaos/old-settings/${stamp}"
+
+    move() {  # a path relative to the home folder
+        local rel=$1
+        [[ -e ${HOME}/${rel} || -L ${HOME}/${rel} ]] || return 0
+        mkdir -p "${old}/${rel%/*}" && mv -- "${HOME}/${rel}" "${old}/${rel}"
+    }
+
+    for f in "${HOME}"/.config/*rc; do
+        name=${f##*/}
+        keep=0
+        for k in "${CONFIG_KEEP[@]}"; do [[ ${name} == "${k}" ]] && keep=1; done
+        [[ ${keep} == 1 || ! -f ${f} || -L ${f} ]] || move ".config/${name}"
+    done
+    for name in "${CONFIG_ALSO[@]}"; do move ".config/${name}"; done
+    for name in "${SHARE_ALSO[@]}"; do move ".local/share/${name}"; done
+    for name in "${STATE_ALSO[@]}"; do move ".local/state/${name}"; done
+    for name in "${HOME_ALSO[@]}"; do move "${name}"; done
+    for f in "${HOME}"/.local/state/*staterc; do move ".local/state/${f##*/}"; done
+
+    # User services: the person's switches for the system's own (for example the controller as
+    # mouse in Asima Gaming); services they wrote themselves stay.
+    for f in "${HOME}"/.config/systemd/user/* "${HOME}"/.config/systemd/user/*/*; do
+        [[ -L ${f} ]] || continue
+        unit=${f##*/}
+        [[ -e /usr/lib/systemd/user/${unit} || -e /usr/lib/systemd/user/${unit%%@*}@.service ]] || continue
+        move "${f#"${HOME}"/}"
+    done
+
+    # Caches made from the old settings: rebuilt at sign-in.
+    rm -rf "${HOME}"/.cache/ksycoca6_* "${HOME}"/.cache/plasma_theme_* "${HOME}"/.cache/plasmashell \
+        "${HOME}"/.cache/icon-cache.kcache
+
+    if [[ -d ${old} ]]; then
+        log "${USER:-$(id -un)}: settings reset; the old ones are in ${old}"
+    else
+        log "${USER:-$(id -un)}: nothing to reset"
+    fi
+    # The newest three resets are kept.
+    local all=("${HOME}"/.local/share/asimaos/old-settings/*/)
+    local n=${#all[@]} i
+    for ((i = 0; i < n - 3; i++)); do rm -rf -- "${all[i]}"; done
+}
+
+users() {  # FILE
+    local file=$1 name uid gid dir
+    [[ -f ${file} ]] || return 0
+    while IFS= read -r name; do
+        [[ ${name} =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || continue
+        IFS=: read -r _ _ uid gid _ dir _ < <(getent passwd "${name}") || { log "${name}: no such account"; continue; }
+        [[ ${uid} -ge 1000 && ${uid} -lt 60000 && -d ${dir} && $(stat -c %u "${dir}") == "${uid}" ]] \
+            || { log "${name}: not a person's account with a home folder"; continue; }
+        setpriv --reuid="${uid}" --regid="${gid}" --init-groups --reset-env -- /usr/lib/asimaos/asimaos-reset-settings home </dev/null \
+            || log "${name}: the reset stopped half-way"
+    done < "${file}"
+    rm -f "${file}"
+}
+
+case ${1:-} in
+    home) home ;;
+    users) users "${2:?users needs a file}" ;;
+    *) echo "usage: asimaos-reset-settings users FILE | home" >&2; exit 2 ;;
+esac

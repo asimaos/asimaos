@@ -1,0 +1,37 @@
+name: Something doesn't work
+description: Report a problem with Asima OS or one of its apps.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. A security problem? Please don't report it here: see SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Asima Updater shows it, for example 2026.11.21.1.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen again
+      placeholder: |
+        1. Open Asima Manager
+        2. ...
+  - type: textarea
+    id: report
+    attributes:
+      label: Problem report
+      description: >-
+        Asima Maintenance → Health → Problem report makes one. Read it first and remove anything
+        you'd rather not share, then paste it here or attach the file.
+      render: text

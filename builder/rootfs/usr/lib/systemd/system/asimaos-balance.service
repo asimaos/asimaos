@@ -1,0 +1,12 @@
+# Asima OS self-maintenance (docs/architecture.md §12). See /usr/lib/asimaos/asimaos-maintenance.
+[Unit]
+Description=Asima OS: give back unused disk space (balance)
+Documentation=file:///usr/lib/asimaos/asimaos-maintenance
+ConditionKernelCommandLine=!asimaos.live
+ConditionACPower=true
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/asimaos/asimaos-maintenance balance
+Nice=19
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle

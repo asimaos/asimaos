@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# mkinitcpio install hook: Asima OS early mount (/usr EROFS + dm-verity, /etc overlay, /var).
+
+build() {
+    add_module erofs
+    add_module dm-verity
+    add_module loop
+    add_module overlay
+    add_module btrfs
+    add_module isofs
+
+    add_binary bash
+    add_binary veritysetup
+    add_binary mount
+    add_binary mkdir
+    add_binary chown
+    add_binary chmod
+    add_binary sleep
+    add_binary seq
+    add_binary blkid
+    add_binary readlink
+    add_binary umount
+    add_binary rmdir
+    add_binary fallocate
+    add_binary chattr
+    add_binary od
+    add_binary tr
+    # Unlocking the pool: systemd-cryptsetup and its TPM2/FIDO2 token plugins come from sd-encrypt.
+    # TPM unlock: on PCs whose TPM driver comes up a moment after the kernel (firmware
+    # TPMs, I2C/SPI chips), systemd must wait for the chip before it tries to unlock. sd-encrypt
+    # brings neither the wait point (tpm2.target, made a dependency by systemd-tpm2-generator when
+    # the firmware reports a TPM) nor the drivers for chips on I2C or SPI.
+    add_file /usr/lib/systemd/system/tpm2.target
+    add_binary /usr/lib/systemd/system-generators/systemd-tpm2-generator
+    add_all_modules /drivers/char/tpm/
+    # TPM unlock with systemd-pcrlock: the policy copy from the ESP is a credential (asimaos-early-mount).
+    add_binary systemd-creds
+
+    # Reset (asimaos-reset): key slots, subvolumes, the ESP, TRIM.
+    add_module vfat
+    add_module nls_cp437
+    add_module nls_iso8859-1
+    add_binary systemd-cryptenroll
+    add_binary btrfs
+    add_binary fstrim
+    add_binary umount
+    add_binary cp
+    add_binary rm
+    add_binary mv          # Settings rollback after a failed update
+    add_binary awk
+    add_binary sort
+    add_binary grep
+    add_binary sync
+    add_binary ls
+    add_binary head
+    add_file /usr/lib/asimaos/asimaos-reset /usr/lib/asimaos/asimaos-reset 755
+
+    # The live session (asimaos-early-mount: live_session).
+    add_binary cat
+    add_binary date
+    add_binary install
+
+    # Live ISO on optical drives: cdrom_id must run before udev probes the disc label.
+    add_udev_rule 60-cdrom_id.rules
+
+    add_file /usr/lib/asimaos/asimaos-early-mount /usr/lib/asimaos/asimaos-early-mount 755
+
+    # The keyboard layout for the start-up passphrase (asimaos-keyboard): every console keymap
+    # (Plymouth's hook already brings every XKB layout); the EFI variable only names one.
+    add_full_dir /usr/share/kbd/keymaps
+    add_binary find
+    add_binary tail
+    add_file /usr/lib/asimaos/asimaos-keyboard /usr/lib/asimaos/asimaos-keyboard 755
+    add_systemd_unit asimaos-keyboard.service
+    add_symlink /usr/lib/systemd/system/sysinit.target.wants/asimaos-keyboard.service \
+        ../asimaos-keyboard.service
+    add_systemd_unit asimaos-early-mount.service
+    add_symlink /usr/lib/systemd/system/initrd-root-fs.target.wants/asimaos-early-mount.service \
+        ../asimaos-early-mount.service
+}
+
+help() {
+    cat <<'EOF'
+Mounts the Asima OS versioned /usr image (EROFS + dm-verity) from the @slots
+subvolume, the persistent /etc overlay from @data, and /var from @var.
+EOF
+}

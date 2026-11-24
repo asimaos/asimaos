@@ -1,0 +1,12 @@
+# Asima OS self-maintenance (docs/architecture.md §12). See /usr/lib/asimaos/asimaos-maintenance.
+[Unit]
+Description=Asima OS: log SSD wear
+Documentation=file:///usr/lib/asimaos/asimaos-maintenance
+ConditionKernelCommandLine=!asimaos.live
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/asimaos/asimaos-maintenance ssd
+Nice=19
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle

@@ -1,0 +1,12 @@
+[Unit]
+Description=Asima OS: snapshot of /home and the settings (on the schedule set in Asima Maintenance)
+Documentation=file:///usr/share/doc/asimaos/DESIGN.md
+ConditionPathIsMountPoint=/run/asimaos-snapshots
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/asimaos/asimaos-maintenanced --snapshot-daily
+# The pool's top level is mounted only inside this service's own mount namespace.
+PrivateMounts=yes
+Nice=10
+IOSchedulingClass=idle

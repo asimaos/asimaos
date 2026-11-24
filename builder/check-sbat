@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+# Asima OS: stop the build when the shim it ships would refuse its own boot parts.
+#
+#   builder/check-sbat SHIM EFI-FILE...
+#
+# Shim starts a program only when the program carries SBAT data (a .sbat section: "component,
+# generation" lines) and none of its components is older than shim's revocation level. Shim brings
+# two levels in its .sbatlevel section: "previous", which it applies by itself, and "latest", which
+# applies once someone sets that policy (mokutil --set-sbat-policy latest). Below "previous" the
+# build stops; below "latest" it warns, as a later shim will apply it.
+import struct
+import sys
+
+
+def sections(path):
+    d = open(path, "rb").read()
+    lfanew = struct.unpack_from("<I", d, 0x3C)[0]
+    count = struct.unpack_from("<H", d, lfanew + 6)[0]
+    symbols, nsymbols = struct.unpack_from("<II", d, lfanew + 12)
+    optional = struct.unpack_from("<H", d, lfanew + 20)[0]
+    strings = symbols + nsymbols * 18
+    table = lfanew + 24 + optional
+    out = {}
+    for i in range(count):
+        s = d[table + 40 * i:table + 40 * i + 40]
+        name = s[:8].rstrip(b"\0").decode(errors="replace")
+        if name.startswith("/"):  # a long name, kept in the COFF string table
+            at = strings + int(name[1:])
+            name = d[at:d.index(b"\0", at)].decode(errors="replace")
+        vsize, _, rsize, raw = struct.unpack_from("<IIII", s, 8)
+        out[name] = d[raw:raw + (min(vsize, rsize) if vsize else rsize)]
+    return out
+
+
+def generations(csv):
+    """'sbat,1,…\\nshim,4\\n…' → {'shim': 4, …} (the first line is the format's own)."""
+    out = {}
+    for line in csv.strip("\0\n").splitlines()[1:]:
+        fields = line.split(",")
+        if len(fields) >= 2 and fields[1].strip().isdigit():
+            out[fields[0].strip()] = int(fields[1])
+    return out
+
+
+def levels(shim):
+    data = sections(shim).get(".sbatlevel")
+    if data is None:
+        sys.exit(f"check-sbat: {shim} has no .sbatlevel section")
+    _, previous, latest = struct.unpack_from("<III", data, 0)
+    text = lambda at: data[4 + at:].split(b"\0")[0].decode()  # offsets count from byte 4
+    return generations(text(previous)), generations(text(latest))
+
+
+def main():
+    previous, latest = levels(sys.argv[1])
+    failed = False
+    for path in sys.argv[2:]:
+        sbat = sections(path).get(".sbat")
+        name = path.rsplit("/", 1)[-1]
+        if sbat is None:
+            print(f"check-sbat: {name} carries no SBAT data: shim would refuse it", file=sys.stderr)
+            failed = True
+            continue
+        mine = generations(sbat.decode(errors="replace"))
+        for component, generation in mine.items():
+            if generation < previous.get(component, 0):
+                print(f"check-sbat: {name}: {component} generation {generation} is revoked by the shim "
+                      f"(it needs {previous[component]})", file=sys.stderr)
+                failed = True
+            elif generation < latest.get(component, 0):
+                print(f"  WARNING: {name}: {component} generation {generation} is below shim's latest "
+                      f"level ({latest[component]}); a later shim will refuse it")
+        print(f"check-sbat: {name}: {', '.join(f'{c} {g}' for c, g in mine.items())}")
+    if failed:
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

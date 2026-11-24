@@ -1,0 +1,19 @@
+[Unit]
+Description=Asima Manager service (firewall, battery charge limit, sign-in settings)
+Documentation=file:///usr/share/doc/asimaos/DESIGN.md
+
+[Service]
+Type=dbus
+BusName=io.github.asimaos.Manager1
+ExecStart=/usr/lib/asimaos/asimaos-managerd
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native

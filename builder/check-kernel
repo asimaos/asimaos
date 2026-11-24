@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+# Asima OS: stop the build when Arch's kernel lacks something the system is built on.
+#
+#   builder/check-kernel VMLINUZ
+#
+# Reads the kernel's own configuration from the image (CONFIG_IKCONFIG: a gzip between the markers
+# IKCFG_ST and IKCFG_ED inside the compressed kernel), so no kernel headers are needed. Each line
+# below says what breaks without the option; "m" (a module) counts as present unless it must be
+# built in.
+import gzip
+import subprocess
+import sys
+
+NEEDED = [
+    # option, built in only, what breaks without it
+    ("CONFIG_EROFS_FS", False, "/usr can't be mounted (EROFS image)"),
+    ("CONFIG_EROFS_FS_ZIP", True, "/usr's compressed EROFS image can't be read"),
+    ("CONFIG_DM_VERITY", False, "/usr isn't verified (dm-verity)"),
+    ("CONFIG_BTRFS_FS", False, "the pool can't be mounted (Btrfs)"),
+    ("CONFIG_OVERLAY_FS", False, "/etc can't be mounted (overlayfs)"),
+    ("CONFIG_EFI_STUB", True, "the kernel can't start from the UKI"),
+    ("CONFIG_MODULE_SIG", True, "drivers aren't checked for a signature"),
+    ("CONFIG_SECURITY_LOCKDOWN_LSM", True, "no kernel lockdown under Secure Boot"),
+    ("CONFIG_INTEGRITY_MACHINE_KEYRING", True, "the Asima OS key (MOK) can't vouch for the NVIDIA driver"),
+    ("CONFIG_LOAD_UEFI_KEYS", True, "the firmware's and MOK keys don't reach the kernel"),
+    ("CONFIG_TCG_TPM", False, "no TPM unlock"),
+    ("CONFIG_TCG_CRB", False, "no TPM unlock on firmware TPMs (CRB)"),
+    ("CONFIG_TCG_TIS", False, "no TPM unlock on TIS chips"),
+    ("CONFIG_SCHED_CLASS_EXT", True, "no gaming CPU schedulers (sched-ext, D44)"),
+    ("CONFIG_BPF_SYSCALL", True, "no sched-ext schedulers (BPF)"),
+    ("CONFIG_DEBUG_INFO_BTF", True, "the sched-ext schedulers can't load (BTF)"),
+    ("CONFIG_NTSYNC", False, "no NTSYNC for Windows games (D26)"),
+    ("CONFIG_INPUT_UINPUT", False, "no gamepad as mouse, no controller remapping (uinput)"),
+    ("CONFIG_ANDROID_BINDER_IPC_RUST", True, "no Android apps (Waydroid needs binder)"),
+    ("CONFIG_VFIO_PCI", False, "no graphics card for virtual machines (VFIO)"),
+    ("CONFIG_KVM_AMD", False, "no virtual machines on AMD (KVM)"),
+    ("CONFIG_KVM_INTEL", False, "no virtual machines on Intel (KVM)"),
+    ("CONFIG_VIRTIO_PCI", False, "Asima OS doesn't start inside QEMU/KVM (virtio)"),
+    ("CONFIG_VIRTIO_BLK", False, "no disk inside QEMU/KVM"),
+    ("CONFIG_VIRTIO_NET", False, "no network inside QEMU/KVM"),
+    ("CONFIG_DRM_VIRTIO_GPU", False, "no screen inside QEMU/KVM"),
+    ("CONFIG_VIRTIO_FS", False, "no shared folders inside QEMU/KVM (virtiofs)"),
+    ("CONFIG_HYPERV", False, "Asima OS doesn't run under Hyper-V"),
+    ("CONFIG_HYPERV_STORAGE", False, "no disk under Hyper-V"),
+    ("CONFIG_DRM_HYPERV", False, "no screen under Hyper-V"),
+    ("CONFIG_VBOXGUEST", False, "no VirtualBox guest additions"),
+    ("CONFIG_DRM_VMWGFX", False, "no screen under VMware or VirtualBox (VMSVGA)"),
+]
+# Must be in the kernel's list of security modules, or lockdown never switches on.
+LSM = ["lockdown"]
+
+DECOMPRESS = [(b"\x28\xb5\x2f\xfd", ["zstd", "-dcq"]), (b"\x1f\x8b\x08", ["gzip", "-dcq"]), (b"\xfd7zXZ\x00", ["xz", "-dcq"])]
+
+
+def kernel_config(path):
+    data = open(path, "rb").read()
+    for magic, tool in DECOMPRESS:
+        at = data.find(magic)
+        while at >= 0:
+            # Trailing data after the payload is expected: a failing exit is fine when output came.
+            out = subprocess.run(tool, input=data[at:], capture_output=True).stdout
+            start, end = out.find(b"IKCFG_ST"), out.find(b"IKCFG_ED")
+            if 0 <= start < end:
+                return gzip.decompress(out[start + 8:end]).decode()
+            at = data.find(magic, at + 1)
+    sys.exit(f"check-kernel: no configuration found in {path} (CONFIG_IKCONFIG off?)")
+
+
+def main():
+    config = kernel_config(sys.argv[1])
+    values = {}
+    for line in config.splitlines():
+        if line.startswith("CONFIG_") and "=" in line:
+            key, value = line.split("=", 1)
+            values[key] = value.strip('"')
+    missing = []
+    for option, builtin, why in NEEDED:
+        value = values.get(option)
+        if value == "y" or (value == "m" and not builtin):
+            continue
+        missing.append(f"  {option} is {value or 'not set'}{' (must be built in)' if value == 'm' else ''}: {why}")
+    lsms = values.get("CONFIG_LSM", "").split(",")
+    for lsm in LSM:
+        if lsm not in lsms:
+            missing.append(f"  CONFIG_LSM lacks {lsm}: no kernel lockdown under Secure Boot")
+    if missing:
+        print("The kernel lacks what Asima OS needs:\n" + "\n".join(missing), file=sys.stderr)
+        sys.exit(1)
+    print(f"check-kernel: all {len(NEEDED)} options and the lockdown LSM are there")
+
+
+if __name__ == "__main__":
+    main()

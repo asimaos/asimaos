@@ -1,0 +1,7 @@
+[Unit]
+Description=Asima OS: remove Android apps (Waydroid's Android and its data)
+Documentation=file:///usr/share/doc/asimaos/DESIGN.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/asimaos/asimaos-android remove

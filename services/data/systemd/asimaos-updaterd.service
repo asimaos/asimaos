@@ -1,0 +1,26 @@
+[Unit]
+Description=Asima Updater service (update files, versions in the start menu)
+Documentation=file:///usr/share/doc/asimaos/DESIGN.md
+
+[Service]
+Type=dbus
+BusName=io.github.asimaos.Updater1
+ExecStart=/usr/lib/asimaos/asimaos-updaterd
+# The slots are made writable, and the pool's top level is opened for the snapshot before an
+# update, only inside this service's own mount namespace.
+PrivateMounts=yes
+RuntimeDirectory=asimaos-updaterd
+RuntimeDirectoryMode=0700
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+UMask=0077

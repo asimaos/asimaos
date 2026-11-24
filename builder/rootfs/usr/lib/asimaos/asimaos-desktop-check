@@ -1,0 +1,50 @@
+#!/usr/bin/bash
+# The sign-in safety net, a user service at every sign-in. The automatic fallback only
+# covers a version that can't start; this covers one whose desktop keeps failing after the login
+# screen. During the first sessions of a new version it watches for ten minutes: when the desktop
+# shell or the window manager crashes again and again, or three sessions in a row ended within
+# two minutes, Asima Updater opens on its Versions page and offers going back to the backup.
+# Once a session ran ten good minutes, the version is settled for this person.
+set -u
+dir=${XDG_STATE_HOME:-${HOME}/.local/state}/asimaos
+state=${dir}/desktop-check      # VERSION SHORT_SESSIONS SETTLED
+beat=${dir}/desktop-check.beat  # STARTED LAST_SEEN of the session before
+mkdir -p "${dir}"
+version=$(. /usr/lib/os-release && echo "${IMAGE_VERSION:-}")
+[[ -n ${version} ]] || exit 0
+
+seen="" short=0 settled=no
+[[ -f ${state} ]] && read -r seen short settled < "${state}"
+if [[ ${seen} != "${version}" ]]; then short=0; settled=no; rm -f "${beat}"; fi
+[[ ${settled} == yes ]] && exit 0
+# How long did the session before last? Under two minutes counts as a failed one.
+if [[ -f ${beat} ]]; then
+    read -r started last < "${beat}"
+    (( ${last:-0} - ${started:-0} < 120 )) && short=$((short + 1)) || short=0
+fi
+echo "${version} ${short} no" > "${state}"
+
+# Only worth offering when the start menu has another version to go back to.
+has_backup() {
+    busctl --timeout=20 call io.github.asimaos.Updater1 /io/github/asimaos/Updater1 io.github.asimaos.Updater1 Status 2>/dev/null \
+        | grep -q 'role\\":\\"backup'
+}
+offer() {
+    rm -f "${beat}"
+    has_backup || exit 0
+    exec asimaos-updater --trouble "${version}"
+}
+
+(( short >= 3 )) && offer
+
+since=$(date +%s)
+for _ in $(seq 60); do
+    echo "${since} $(date +%s)" > "${beat}"
+    sleep 10
+    crashes=$(coredumpctl list --no-legend --no-pager --since "@${since}" 2>/dev/null \
+        | grep -cE 'plasmashell|kwin_wayland|kwin_x11' || true)
+    restarts=$(systemctl --user show -P NRestarts plasma-plasmashell.service 2>/dev/null || echo 0)
+    (( ${crashes:-0} >= 3 || ${restarts:-0} >= 3 )) && offer
+done
+rm -f "${beat}"
+echo "${version} 0 yes" > "${state}"

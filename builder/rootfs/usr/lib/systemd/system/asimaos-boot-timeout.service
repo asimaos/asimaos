@@ -1,0 +1,10 @@
+# Asima OS: a trial start of a new version that has not completed after 15 minutes restarts,
+# so the start menu counts the failed try (docs/architecture.md §8).
+[Unit]
+Description=Asima OS: restart a start that never completed
+Documentation=file:///usr/lib/asimaos/asimaos-health
+ConditionPathExists=/sys/firmware/efi/efivars/LoaderBootCountPath-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/asimaos/asimaos-health timeout

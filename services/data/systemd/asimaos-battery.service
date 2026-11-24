@@ -1,0 +1,13 @@
+[Unit]
+Description=Asima Manager: the battery's charge limit, put back at start-up
+Documentation=file:///usr/share/doc/asimaos/DESIGN.md
+# Some laptops forget the limit when they restart; KDE's own setting is left alone.
+After=sysinit.target
+ConditionPathExists=/etc/asimaos/battery.conf
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/asimaos/asimaos-managerd --apply-battery
+
+[Install]
+WantedBy=multi-user.target

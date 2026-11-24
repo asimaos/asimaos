@@ -1,0 +1,15 @@
+[Unit]
+Description=Asima OS: hand the graphics card kept for virtual machines to vfio-pci
+Documentation=file:///usr/lib/asimaos/asimaos-passthrough
+DefaultDependencies=no
+ConditionPathExists=/etc/asimaos/passthrough.conf
+After=systemd-modules-load.service systemd-udev-trigger.service
+Before=display-manager.service plasmalogin.service sysinit.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/asimaos/asimaos-passthrough bind
+
+[Install]
+WantedBy=sysinit.target

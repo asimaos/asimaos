@@ -1,0 +1,18 @@
+# Asima OS: AppArmor's compiled policy stays on disk (/var/lib/asimaos/apparmor-cache, made by
+# asimaos-early-mount), under the caches that live in RAM.
+[Unit]
+Description=AppArmor policy cache on disk
+DefaultDependencies=no
+Requires=var-cache.mount
+After=var-cache.mount
+Conflicts=umount.target
+Before=local-fs.target umount.target apparmor.service
+
+[Mount]
+What=/var/lib/asimaos/apparmor-cache
+Where=/var/cache/apparmor
+Type=none
+Options=bind
+
+[Install]
+WantedBy=local-fs.target

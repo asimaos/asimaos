@@ -1,0 +1,5 @@
+#!/usr/bin/bash
+# asimaos-repair: "Repair this computer" (on the ISO).
+# The work is done by asimaos-engine (services/asimaos-engine), which sits next to this file;
+# `asimaos-repair --help` lists the options.
+exec "${ASIMAOS_ENGINE:-$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/asimaos-engine}" repair "$@"

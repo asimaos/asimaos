@@ -1,0 +1,10 @@
+# Asima OS runtime mounts (after switch-root).
+# /, /usr, /etc, /var, /home, /root, /var/lib/{containers,libvirt,flatpak}, /run/asimaos-snapshots
+# and /run/initramfs/reserve are mounted in the initramfs by asimaos-early-mount.service, from the
+# encrypted or plain pool alike.
+# <device>               <mountpoint>            <type>  <options>                                                    <dump> <pass>
+# The ESP (start menu, boot images, Asima Rescue) never opens by itself: an accident,
+# a careless script or malware running as administrator can't reach it. The services that need it
+# (updates, "mark as good", Asima Maintenance) open it in their own private mount namespace.
+# An administrator can still open it by hand: mount /boot
+PARTLABEL=ESP            /boot                   vfat    umask=0077,noauto                                            0 0

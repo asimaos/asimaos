@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Asima Manager
+GenericName=Device Settings
+Comment=Power and battery, display and lighting, sign-in, hardware and the firewall
+Exec=asimaos-manager
+Icon=io.github.asimaos.Manager
+Terminal=false
+Categories=System;Settings;
+Keywords=battery;charge;power;mode;lighting;rgb;keyboard;fingerprint;face;sign-in;hardware;firewall;shield;vpn;
+StartupNotify=true

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Asima Gaming
+GenericName=Gaming Hub
+Comment=Power and scheduling for games, controllers and handheld controls
+Exec=asimaos-gaming
+Icon=io.github.asimaos.Gaming
+Terminal=false
+Categories=Game;Settings;
+Keywords=gaming;game;controller;gamepad;handheld;tdp;scheduler;gamemode;overlay;mangohud;steam;
+StartupNotify=true

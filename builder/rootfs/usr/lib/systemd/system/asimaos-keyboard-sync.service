@@ -1,0 +1,16 @@
+# Asima OS: keep the start-up keyboard layout the same as the system's (/etc/vconsole.conf):
+# when it changes (asimaos-keyboard-sync.path) and at every start, which catches a /etc that came
+# back without a change being seen (a factory reset brings back the shipped US layout).
+[Unit]
+Description=Keyboard layout for the start-up passphrase
+ConditionPathExists=/sys/firmware/efi/efivars
+# Not from the live USB stick: started on an installed PC, it would reset that system's layout.
+# (The installer stores the new system's layout itself.)
+ConditionKernelCommandLine=!asimaos.live
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/asimaos/asimaos-keyboard --sync
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,3 @@
+# Asima Gaming: put the saved RGB colour back on a light when it appears (at start-up, and when a
+# controller connects). Without a saved colour (/etc/asimaos/lighting.conf) nothing changes.
+ACTION=="add", SUBSYSTEM=="leds", TEST=="multi_index", RUN+="/usr/lib/asimaos/asimaos-gamingd --apply-lighting /sys%p"

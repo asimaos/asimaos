@@ -1,0 +1,8 @@
+[Unit]
+Description=Asima OS: give the graphics card back to Asima OS (GPU passthrough off)
+Documentation=file:///usr/lib/asimaos/asimaos-passthrough
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/asimaos/asimaos-esp --graceful /usr/lib/asimaos/asimaos-passthrough off
+PrivateMounts=yes

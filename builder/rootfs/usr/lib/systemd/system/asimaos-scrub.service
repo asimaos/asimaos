@@ -1,0 +1,12 @@
+# Asima OS self-maintenance (docs/architecture.md §12). See /usr/lib/asimaos/asimaos-maintenance.
+[Unit]
+Description=Asima OS: check every block of the disk (scrub)
+Documentation=file:///usr/lib/asimaos/asimaos-maintenance
+ConditionKernelCommandLine=!asimaos.live
+ConditionACPower=true
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/asimaos/asimaos-maintenance scrub
+Nice=19
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle

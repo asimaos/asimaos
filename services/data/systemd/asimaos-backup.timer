@@ -1,0 +1,10 @@
+[Unit]
+Description=Asima OS: daily backup (only once one is set up)
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

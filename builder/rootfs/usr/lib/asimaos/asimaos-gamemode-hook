@@ -1,0 +1,14 @@
+#!/usr/bin/bash
+# GameMode's start/end hook (/etc/gamemode.ini), run as the person playing: marks that a game runs,
+# so the controller-as-mouse service (asimaos-controller-mouse) pauses and the game has the
+# controller to itself.
+set -u
+mark=${XDG_RUNTIME_DIR:-/tmp}/asimaos-game-running
+case ${1:-} in
+start) touch "${mark}" ;;
+end) rm -f "${mark}" ;;
+*)
+    echo "usage: asimaos-gamemode-hook start|end" >&2
+    exit 2
+    ;;
+esac

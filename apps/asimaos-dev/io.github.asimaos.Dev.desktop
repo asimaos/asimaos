@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Asima Dev
+GenericName=Developer Workspaces
+Comment=Containers and virtual machines for development, without touching the system
+Exec=asimaos-dev
+Icon=io.github.asimaos.Dev
+Terminal=false
+Categories=Development;
+Keywords=container;distrobox;podman;virtual machine;vm;development;terminal;
+StartupNotify=true

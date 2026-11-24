@@ -1,0 +1,18 @@
+# Asima OS: a start only counts as good once the login screen (or the automatic sign-in) has
+# been up for 15 s (docs/architecture.md §8, D11). See /usr/lib/asimaos/asimaos-health.
+[Unit]
+Description=Asima OS health check: the login screen
+Documentation=file:///usr/lib/asimaos/asimaos-health
+After=graphical.target display-manager.service asimaos-core-health.service
+Before=boot-complete.target
+ConditionKernelCommandLine=!asimaos.live
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/asimaos/asimaos-health desktop
+TimeoutStartSec=5min
+
+[Install]
+WantedBy=graphical.target
+RequiredBy=boot-complete.target

@@ -1,0 +1,158 @@
+#!/usr/bin/bash
+# asimaos: Asima OS in the terminal. Everything the Asima OS apps do, through the same
+# services and the same password prompts (polkit), plus safe USB-stick tasks:
+#
+#   asimaos                        what's going on: version, start menu, health, snapshots, backup
+#   asimaos update FILE            install an update file (.aosupd)
+#   asimaos reinstall FILE         write a fresh copy of the running version from its update file
+#   asimaos versions               the versions in the start menu
+#   asimaos use VERSION [--once]   start that version from now on (or only at the next start)
+#   asimaos health                 run the health check
+#   asimaos snapshot               take a snapshot of your files and the settings now
+#   asimaos snapshots [daily|weekly|monthly|off]   list snapshots, or set how often they're taken
+#   asimaos backup                 back up now
+#   asimaos report [FILE]          make a problem report (shown, or saved to FILE)
+#   asimaos shield [public|home|developer]          show or set the firewall zone
+#   asimaos battery [PERCENT]      show or set the battery's charge limit
+#   asimaos usb list               USB sticks that can be written
+#   asimaos usb write IMAGE DEVICE write an Asima OS ISO to a USB stick (never to the Asima OS disk)
+set -euo pipefail
+
+say() { printf '%s\n' "$*"; }
+die() { printf 'asimaos: %s\n' "$*" >&2; exit 1; }
+need() { command -v "$1" >/dev/null || die "$1 is missing"; }
+need busctl
+need jq
+
+# call SERVICE METHOD [SIGNATURE ARGS...]: one call on io.github.asimaos.SERVICE; prints the first value.
+call() {
+    local svc=$1 method=$2
+    shift 2
+    busctl --json=short --timeout=900 call "io.github.asimaos.${svc}" "/io/github/asimaos/${svc}" "io.github.asimaos.${svc}" \
+        "${method}" "$@" | jq -r '.data[0] // empty'
+}
+status() { call "$1" Status; }
+
+bytes() { numfmt --to=iec --suffix=B "${1:-0}" 2>/dev/null || echo "${1}B"; }
+
+overview() {
+    local u m
+    u=$(status Updater1) || die "Asima Updater's service doesn't answer"
+    m=$(status Maintenance1 2>/dev/null || echo '{}')
+    say "Asima OS $(jq -r '.version' <<<"${u}")"
+    jq -r '.versions[]? | select(.role != null) | "  \(.role | .[0:1] | ascii_upcase)\(.role | .[1:]): Asima OS \(.version)\(if .blessed == false then " (on trial)" else "" end)"' <<<"${u}"
+    say "  Free space: $(bytes "$(jq -r '.storage.free // 0' <<<"${m}")")"
+    jq -r '"  Snapshots: \(.snapshots | length) kept, taken \(.snapshotSchedule // "daily")"' <<<"${m}"
+    jq -r 'if .backup.configured then "  Backup: to \(.backup.destination)" + (if .backup.lastOk == true then ", last one fine" elif .backup.lastOk == false then ", last one failed: \(.backup.lastMessage)" else "" end) else "  Backup: not set up (asimaos backup needs one; set it up in Asima Maintenance)" end' <<<"${m}"
+    jq -r 'if (.crashes | length) > 0 then "  Problems: \(.crashes | length) failed start(s) or crash(es), see Asima Maintenance → Health" else empty end' <<<"${m}"
+}
+
+# install FILE METHOD: hands the file to Asima Updater's service and follows the job.
+install() {
+    local file=$1 method=$2 job s
+    [[ -f ${file} ]] || die "no such file: ${file}"
+    s=$(busctl --json=short --timeout=900 call io.github.asimaos.Updater1 /io/github/asimaos/Updater1 io.github.asimaos.Updater1 \
+        VerifyUpdate h 3 3<"${file}" | jq -r '.data[0]')
+    if [[ $(jq -r '.ok' <<<"${s}") != true ]]; then
+        die "$(jq -r '.problems[0] // "this update can not be installed"' <<<"${s}")"
+    fi
+    say "Asima OS $(jq -r '.version' <<<"${s}"): signature and parts check out."
+    job=$(busctl --json=short --timeout=900 call io.github.asimaos.Updater1 /io/github/asimaos/Updater1 io.github.asimaos.Updater1 \
+        "${method}" h 3 3<"${file}" | jq -r '.data[0]')
+    while :; do
+        s=$(status Updater1)
+        [[ $(jq -r '.job.id // empty' <<<"${s}") == "${job}" ]] || { sleep 1; continue; }
+        printf '\r  %3d %%  %-60.60s' "$(jq -r '(.job.progress * 100) | floor' <<<"${s}")" "$(jq -r '.job.detail' <<<"${s}")"
+        if [[ $(jq -r '.job.done' <<<"${s}") == true ]]; then
+            printf '\n'
+            [[ $(jq -r '.job.ok' <<<"${s}") == true ]] || die "$(jq -r '.job.message' <<<"${s}")"
+            say "$(jq -r '.job.message' <<<"${s}")"
+            return 0
+        fi
+        sleep 1
+    done
+}
+
+# USB sticks: removable whole disks that are not the Asima OS disk.
+usb_sticks() {
+    lsblk -dnrpo NAME,RM,TRAN,SIZE,MODEL | awk '$2 == 1 || $3 == "usb" { print }'
+}
+
+cmd=${1:-}
+[[ $# -gt 0 ]] && shift
+case ${cmd} in
+""|status)  overview ;;
+update)     install "${1:?usage: asimaos update FILE}" ApplyUpdate ;;
+reinstall)  install "${1:?usage: asimaos reinstall FILE}" ReinstallVersion ;;
+versions)   status Updater1 | jq -r '.versions[]? | "\(.version)  \(.role // "kept, not in the start menu")\(if .running then ", running" else "" end)\(if .role != null and .blessed == false then " (on trial)" else "" end)"' ;;
+use)
+    v=${1:?usage: asimaos use VERSION [--once]}
+    once=false; [[ ${2:-} == --once ]] && once=true
+    call Updater1 SetDefaultVersion sb "${v}" "${once}" >/dev/null
+    [[ ${once} == true ]] && say "Asima OS ${v} starts at the next start, once." || say "Asima OS ${v} starts from now on."
+    ;;
+health)
+    call Maintenance1 RunHealthCheck | jq -r '.checks[]
+        | if .id == "space" and ((.detail // "") | test("^[0-9]+$")) then .detail = "\((.detail | tonumber) / 1e8 | floor / 10) GB free" else . end
+        | "\(if .ok then "ok  " else "FAIL" end)  \(.id)\(if (.detail // "") != "" then ": \(.detail)" else "" end)"'
+    ;;
+snapshot)   say "Snapshot $(call Maintenance1 SnapshotNow) taken: your files and the settings." ;;
+snapshots)
+    if [[ -n ${1:-} ]]; then
+        call Maintenance1 SetSnapshotSchedule s "$1" >/dev/null
+        say "Snapshots are now taken: $1"
+    else
+        status Maintenance1 | jq -r '"Taken: \(.snapshotSchedule // "daily")", (.snapshots[] | "  \(.label)  (\(.kind))")'
+    fi
+    ;;
+backup)     call Maintenance1 BackupNow >/dev/null; say "Backing up now. Asima Maintenance shows the result." ;;
+report)
+    r=$(call Maintenance1 ProblemReport)
+    if [[ -n ${1:-} ]]; then printf '%s\n' "${r}" > "$1"; say "Saved to $1. Nothing was sent anywhere."; else printf '%s\n' "${r}"; fi
+    ;;
+shield)
+    if [[ -n ${1:-} ]]; then
+        call Manager1 SetShield sv zone s "$1" >/dev/null
+        say "Asima Shield: $1 zone"
+    else
+        status Manager1 | jq -r '"Asima Shield: \(.shield.zone) zone\(if .shield.killSwitch then ", VPN kill switch on" else "" end)"'
+    fi
+    ;;
+battery)
+    if [[ -n ${1:-} ]]; then
+        [[ $1 =~ ^[0-9]+$ ]] || die "usage: asimaos battery [PERCENT]"
+        call Manager1 Set ssv power chargeLimit i "$1" >/dev/null
+        say "The battery charges up to $1 %."
+    else
+        status Manager1 | jq -r 'if .device.chargeLimit.supported then "The battery charges up to \(.device.chargeLimit.value) %." else "This computer has no charge limit." end'
+    fi
+    ;;
+usb)
+    case ${1:-} in
+    list)
+        usb_sticks | while read -r dev rm tran size model; do say "${dev}  ${size}  ${model//\\x20/ }"; done
+        ;;
+    write)
+        img=${2:?usage: asimaos usb write IMAGE DEVICE}
+        dev=${3:?usage: asimaos usb write IMAGE DEVICE}
+        [[ -f ${img} ]] || die "no such file: ${img}"
+        [[ -b ${dev} ]] || die "${dev} is not a disk"
+        usb_sticks | awk '{ print $1 }' | grep -qx "$(readlink -f "${dev}")" \
+            || die "${dev} is not a USB stick (asimaos usb list shows the ones that are)"
+        for p in /dev/disk/by-partlabel/ESP /dev/disk/by-partlabel/crypt_pool /dev/disk/by-partlabel/asimaos_pool; do
+            [[ -e ${p} && $(lsblk -ndo PKNAME "$(readlink -f "${p}")") == "${dev#/dev/}" ]] && die "${dev} holds Asima OS itself"
+        done
+        lsblk -o NAME,SIZE,MODEL "${dev}"
+        read -r -p "Everything on ${dev} is erased. Type YES to write $(basename "${img}"): " answer
+        [[ ${answer} == YES ]] || die "stopped; nothing was written"
+        sudo umount "${dev}"?* 2>/dev/null || true
+        sudo env ASIMAOS_GUARD=off dd if="${img}" of="${dev}" bs=4M conv=fsync oflag=direct status=progress
+        sync
+        say "Done. The USB stick starts Asima OS."
+        ;;
+    *) die "usage: asimaos usb list | asimaos usb write IMAGE DEVICE" ;;
+    esac
+    ;;
+help|-h|--help) sed -n '2,/^set -euo pipefail$/p' "$0" | sed '$d; s/^# \{0,1\}//' ;;
+*) die "unknown command ${cmd} (asimaos help lists them)" ;;
+esac

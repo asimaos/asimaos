@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!-- Asima OS services. Reading status needs no action at all. The installer's account is in
+     group wheel, which polkit asks for "administrator" authentication. One prefix per app:
+     io.github.asimaos.updater.*, .maintenance.*, .manager.*, .gaming.*, .face.* -->
+<policyconfig>
+  <vendor>Asima OS</vendor>
+
+  <!-- Asima Updater (asimaos-updaterd) -->
+  <action id="io.github.asimaos.updater.update">
+    <description>Install an Asima OS update</description>
+    <message>Installing an Asima OS update needs your password</message>
+    <defaults><allow_any>auth_admin</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
+  <action id="io.github.asimaos.updater.rollback">
+    <description>Choose which Asima OS version starts</description>
+    <message>Choosing the version that starts needs your password</message>
+    <defaults><allow_any>auth_admin</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
+
+  <!-- Asima Maintenance (asimaos-maintenanced) -->
+  <action id="io.github.asimaos.maintenance.secureboot">
+    <description>Approve the Asima OS key for Secure Boot</description>
+    <message>Setting up Secure Boot needs your password</message>
+    <defaults><allow_any>auth_admin</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
+  <action id="io.github.asimaos.maintenance.secrets">
+    <description>Change how the disk is unlocked</description>
+    <message>Changing the disk's passphrase, recovery key or automatic unlock needs your password</message>
+    <defaults><allow_any>auth_admin</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin</allow_active></defaults>
+  </action>
+  <action id="io.github.asimaos.maintenance.backup">
+    <description>Take snapshots and set up backups</description>
+    <message>Snapshots and backups need your password</message>
+    <defaults><allow_any>auth_admin</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
+  <action id="io.github.asimaos.maintenance.report">
+    <description>Make a problem report</description>
+    <message>A problem report reads the system's logs and needs your password</message>
+    <defaults><allow_any>auth_admin</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
+  <action id="io.github.asimaos.maintenance.boot">
+    <description>Change which system the computer starts first</description>
+    <message>Changing the computer's start order needs your password</message>
+    <defaults><allow_any>auth_admin</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
+  <action id="io.github.asimaos.maintenance.etc">
+    <description>Restore system settings to their factory version</description>
+    <message>Restoring system settings needs your password</message>
+    <defaults><allow_any>auth_admin</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin</allow_active></defaults>
+  </action>
+  <action id="io.github.asimaos.maintenance.reset">
+    <description>Reset this computer</description>
+    <message>Resetting this computer needs your password</message>
+    <defaults><allow_any>auth_admin</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin</allow_active></defaults>
+  </action>
+
+  <!-- Asima Manager (asimaos-managerd) -->
+  <action id="io.github.asimaos.manager.device">
+    <description>Change this device's settings</description>
+    <message>Changing device settings needs your password</message>
+    <defaults><allow_any>auth_admin</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+  <action id="io.github.asimaos.manager.shield">
+    <description>Change the firewall mode</description>
+    <message>Changing how visible this computer is on the network needs your password</message>
+    <defaults><allow_any>auth_admin</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
+
+  <!-- Asima Gaming (asimaos-gamingd) -->
+  <action id="io.github.asimaos.gaming.device">
+    <description>Tune this device for games and set its lights</description>
+    <message>Changing gaming settings needs your password</message>
+    <defaults><allow_any>auth_admin</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+
+  <!-- Face sign-in (asimaos-faced), set up in Asima Manager -->
+  <action id="io.github.asimaos.gaming.gamemode">
+    <description>Start this computer in game mode, signed in by itself</description>
+    <message>Starting in game mode without signing in needs your password</message>
+    <defaults><allow_any>auth_admin</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
+  <action id="io.github.asimaos.face.enroll">
+    <description>Set up face sign-in for yourself</description>
+    <message>Setting up face sign-in needs your password</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+  <action id="io.github.asimaos.face.admin">
+    <description>Approve an administrator task with a fingerprint or a face</description>
+    <message>Approving with a fingerprint or a face is only possible at the computer</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+</policyconfig>

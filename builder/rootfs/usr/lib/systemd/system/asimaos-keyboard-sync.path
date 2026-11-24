@@ -1,0 +1,11 @@
+# Asima OS: the system keyboard layout changed (for example with localectl): store it for the
+# start-up passphrase too.
+[Unit]
+Description=Watch the system keyboard layout
+
+[Path]
+PathChanged=/etc/vconsole.conf
+Unit=asimaos-keyboard-sync.service
+
+[Install]
+WantedBy=multi-user.target

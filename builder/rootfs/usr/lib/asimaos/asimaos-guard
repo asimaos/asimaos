@@ -1,0 +1,130 @@
+#!/usr/bin/bash
+# Asima OS disk guard. It stands in front of the tools that can destroy a disk in one
+# line (/usr/local/bin/<tool> → this script) and steps in only when they point at this computer's
+# Asima OS disk, or when rm -r points at a top-level folder of the system:
+#
+#   mkfs, mkfs.*, mkswap, wipefs, blkdiscard, dd of=…, sfdisk, sgdisk, fdisk, cryptsetup erase|format
+#   rm -r /, /home, /etc, /var, /root, /nix, /usr …
+#
+# Then it shows what would be destroyed and asks for the last 4 characters of the disk's serial
+# number. USB sticks and other disks work as usual. Without a person at the keyboard it refuses.
+# Switch it off for one command with ASIMAOS_GUARD=off, or for good with GUARD=off in
+# /etc/asimaos/guard.conf.
+set -uo pipefail
+
+name=${0##*/}
+real=""
+for d in /usr/bin /usr/sbin; do
+    [[ -x ${d}/${name} ]] && { real=${d}/${name}; break; }
+done
+[[ -n ${real} ]] || { echo "asimaos-guard: ${name} is not installed" >&2; exit 127; }
+
+off() {
+    [[ ${ASIMAOS_GUARD:-} == off ]] && return 0
+    grep -qsx 'GUARD=off' /etc/asimaos/guard.conf
+}
+off && exec "${real}" "$@"
+
+# The Asima OS disk: every disk that holds the ESP or the pool, with all its partitions and the
+# devices on top of them (the opened encrypted pool).
+system_devices() {
+    local p disk
+    for p in /dev/disk/by-partlabel/ESP /dev/disk/by-partlabel/crypt_pool /dev/disk/by-partlabel/asimaos_pool; do
+        [[ -e ${p} ]] || continue
+        disk=$(lsblk -ndo PKNAME "$(readlink -f "${p}")" 2>/dev/null)
+        [[ -n ${disk} ]] && lsblk -nrpo NAME "/dev/${disk}" 2>/dev/null
+    done | sort -u
+}
+
+ask() {  # WHAT (a sentence), DEVICE-OR-EMPTY
+    local disk serial want typed
+    if [[ ! -t 0 || ! -t 2 ]]; then
+        echo "asimaos-guard: refused: $1" >&2
+        echo "asimaos-guard: this needs a person at the keyboard (or ASIMAOS_GUARD=off for this command)." >&2
+        exit 1
+    fi
+    {
+        echo
+        echo "  Asima OS disk guard"
+        echo "  ${1}"
+        if [[ -n ${2:-} ]]; then
+            disk=$(lsblk -ndo PKNAME "$2" 2>/dev/null); disk=${disk:-${2#/dev/}}
+            echo
+            lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL,MODEL "/dev/${disk}" 2>/dev/null | sed 's/^/    /'
+            serial=$(lsblk -ndo SERIAL "/dev/${disk}" 2>/dev/null | tr -d ' ')
+        fi
+        echo
+    } >&2
+    want=${serial:+${serial: -4}}
+    want=${want:-ERASE}
+    if [[ ${want} == ERASE ]]; then
+        printf '  Type ERASE to go on (anything else stops): ' >&2
+    else
+        printf '  Type the last 4 characters of the disk'"'"'s serial number to go on: ' >&2
+    fi
+    read -r typed </dev/tty || typed=""
+    [[ ${typed} == "${want}" ]] || { echo "  Stopped. Nothing was changed." >&2; exit 1; }
+}
+
+PROTECTED=()
+LOOKED=no
+protected_dev() {  # PATH → 0 if it is (on) the Asima OS disk
+    local r d
+    r=$(readlink -f -- "$1" 2>/dev/null) || return 1
+    [[ -b ${r} ]] || return 1
+    # Only now, for a block device: rm and dd of a file never pay for the disk lookup.
+    [[ ${LOOKED} == yes ]] || { mapfile -t PROTECTED < <(system_devices); LOOKED=yes; }
+    for d in "${PROTECTED[@]}"; do
+        [[ $(readlink -f "${d}") == "${r}" ]] && return 0
+    done
+    return 1
+}
+
+case ${name} in
+rm)
+    recursive=no
+    for a in "$@"; do
+        case ${a} in
+            --) break ;;
+            --recursive|-r|-R) recursive=yes ;;
+            --*) ;;
+            -*) [[ ${a} == *[rR]* ]] && recursive=yes ;;
+        esac
+    done
+    if [[ ${recursive} == yes ]]; then
+        hits=()
+        for a in "$@"; do
+            [[ ${a} == -* ]] && continue
+            r=$(readlink -m -- "${a}")
+            case ${r} in
+                /|/home|/etc|/var|/root|/nix|/usr|/boot|/run|/run/initramfs|/run/initramfs/*|/var/lib|/var/lib/flatpak|/var/lib/containers|/var/lib/libvirt)
+                    hits+=("${r}") ;;
+            esac
+        done
+        (( ${#hits[@]} == 0 )) || ask "rm would delete ${hits[*]}: the system, its settings or everyone's files." ""
+    fi
+    ;;
+dd)
+    for a in "$@"; do
+        [[ ${a} == of=* ]] && protected_dev "${a#of=}" && ask "dd would overwrite ${a#of=}, part of the Asima OS disk." "${a#of=}"
+    done
+    ;;
+cryptsetup)
+    destructive=no
+    for a in "$@"; do
+        case ${a} in erase|luksErase|luksFormat|format|reencrypt|luksKillSlot|repair) destructive=yes ;; esac
+    done
+    if [[ ${destructive} == yes ]]; then
+        for a in "$@"; do
+            protected_dev "${a}" && ask "cryptsetup would destroy the keys of ${a}: the Asima OS disk could never be opened again." "${a}"
+        done
+    fi
+    ;;
+*)
+    for a in "$@"; do
+        [[ ${a} == -* ]] && continue
+        protected_dev "${a}" && ask "${name} would destroy what is on ${a}, part of the Asima OS disk." "${a}"
+    done
+    ;;
+esac
+exec "${real}" "$@"

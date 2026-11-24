@@ -1,0 +1,29 @@
+#!/usr/bin/bash
+# Asima OS: run one program with the ESP mounted at /boot, in the program's own mount namespace:
+# the desktop never sees the mount.
+#
+#   asimaos-esp [--graceful] PROGRAM [ARGS...]
+#
+# It mounts, then becomes PROGRAM (exec), so both share the namespace: systemd gives every Exec*=
+# line its own one, so a mount made in ExecStartPre= is not seen by ExecStart=. For units with
+# PrivateMounts=yes (systemd-bless-boot, the boot random seed). With --graceful, PROGRAM also runs
+# when the ESP can't be opened.
+set -euo pipefail
+graceful=no
+[[ ${1:-} == --graceful ]] && { graceful=yes; shift; }
+[[ $# -gt 0 ]] || { echo "usage: asimaos-esp [--graceful] PROGRAM [ARGS...]" >&2; exit 2; }
+if ! mountpoint -q /boot; then
+    mkdir -p -m 0700 /boot
+    var=/sys/firmware/efi/efivars/LoaderDevicePartUUID-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+    dev=""
+    if [[ -f ${var} ]]; then
+        uuid=$(tail -c +5 "${var}" | tr -d '\0' | tr '[:upper:]' '[:lower:]')
+        [[ -e /dev/disk/by-partuuid/${uuid} ]] && dev=/dev/disk/by-partuuid/${uuid}
+    fi
+    [[ -n ${dev} ]] || dev=/dev/disk/by-partlabel/ESP
+    if ! mount -t vfat -o umask=0077,noatime,flush "${dev}" /boot; then
+        echo "asimaos-esp: the ESP (${dev}) could not be mounted" >&2
+        [[ ${graceful} == yes ]] || exit 1
+    fi
+fi
+exec "$@"

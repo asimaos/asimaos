@@ -1,0 +1,10 @@
+[Unit]
+Description=Asima OS: check every block of the disk (scrub) (weekly)
+
+[Timer]
+OnCalendar=weekly
+RandomizedDelaySec=6h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

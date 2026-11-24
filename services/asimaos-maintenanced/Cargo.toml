@@ -1,0 +1,15 @@
+[package]
+name = "asimaos-maintenanced"
+description = "Asima Maintenance service: health, Secure Boot and disk keys, snapshots and backups, /etc restore, reset (io.github.asimaos.Maintenance1)"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+asimaos-svc = { path = "../asimaos-svc" }
+asimaos-update = { path = "../asimaos-update" }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+zbus.workspace = true

@@ -1,0 +1,14 @@
+[options]
+HoldPkg     = pacman glibc
+Architecture = auto
+ParallelDownloads = 5
+SigLevel    = Required DatabaseOptional
+LocalFileSigLevel = Optional
+# Rootless containers cannot use pacman's landlock download sandbox.
+DisableSandbox
+
+[core]
+Server = https://archive.archlinux.org/repos/@ARCHIVE_DATE@/$repo/os/$arch
+
+[extra]
+Server = https://archive.archlinux.org/repos/@ARCHIVE_DATE@/$repo/os/$arch

@@ -1,0 +1,16 @@
+[Unit]
+Description=Reset settings (Asima Maintenance): the person's desktop and app settings back to the defaults
+Documentation=file:///usr/share/doc/asimaos/DESIGN.md
+# Scheduled in Asima Maintenance → System changes; the initramfs has reset /etc just before.
+# Runs before anyone signs in, so no desktop is using the files it moves.
+ConditionPathExists=/run/initramfs/data/flags/reset-settings
+RequiresMountsFor=/home /run/initramfs/data
+After=systemd-user-sessions.service
+Before=display-manager.service plasmalogin.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/asimaos/asimaos-reset-settings users /run/initramfs/data/flags/reset-settings
+
+[Install]
+WantedBy=multi-user.target

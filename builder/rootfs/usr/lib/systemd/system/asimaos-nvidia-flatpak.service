@@ -1,0 +1,17 @@
+# Asima OS: the matching NVIDIA driver for Flatpak apps after an update brought a new driver.
+[Unit]
+Description=Asima OS: the NVIDIA driver for Flatpak apps, after a driver update
+Documentation=file:///usr/share/doc/asimaos/DESIGN.md
+ConditionPathExists=/sys/module/nvidia/version
+# No Wants=network-online.target: a skipped unit still pulls in what it wants, and every start
+# would wait for the network. The script waits for NetworkManager itself when it has work to do.
+After=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/asimaos/asimaos-nvidia-flatpak
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

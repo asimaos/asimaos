@@ -1,0 +1,20 @@
+#!/usr/bin/bash
+# Asima OS: the root half of Android apps (Waydroid), run by asimaos-android-setup.service and
+# asimaos-android-remove.service, which Asima Manager starts (asimaos-managerd).
+set -euo pipefail
+case ${1:-} in
+setup)
+    # Downloads the Android system (about 1 GB) from Waydroid's official OTA servers.
+    waydroid init
+    systemctl enable --now waydroid-container.service
+    ;;
+remove)
+    systemctl disable --now waydroid-container.service || true
+    waydroid session stop 2>/dev/null || true
+    rm -rf /var/lib/waydroid
+    ;;
+*)
+    echo "usage: asimaos-android setup | remove" >&2
+    exit 2
+    ;;
+esac

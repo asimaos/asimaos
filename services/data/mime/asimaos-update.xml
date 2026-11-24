@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Asima OS update files: recognised by name and by their first bytes ("AOSUPD"), so a
+     renamed download is still known. Installed to /usr/share/mime/packages/. -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-asimaos-update">
+    <comment>Asima OS update</comment>
+    <generic-icon name="system-software-update"/>
+    <magic priority="80">
+      <match type="string" offset="0" value="AOSUPD"/>
+    </magic>
+    <glob pattern="*.aosupd"/>
+  </mime-type>
+</mime-info>

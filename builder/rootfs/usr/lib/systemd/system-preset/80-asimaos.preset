@@ -1,0 +1,6 @@
+# Asima OS: NetworkManager runs the network, so systemd-networkd stays off when the first
+# start applies the presets (90-systemd.preset would switch it on, and its wait for the network
+# then fails for want of links to manage).
+disable systemd-networkd.service
+disable systemd-networkd-wait-online.service
+disable systemd-network-generator.service

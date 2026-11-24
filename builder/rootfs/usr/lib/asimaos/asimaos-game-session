@@ -1,0 +1,7 @@
+#!/usr/bin/bash
+# Asima OS game mode: Steam's full-screen interface (Big Picture) is the whole session, on KWin
+# (KDE's compositor, with Xwayland for the games). Started from the login screen ("Game mode
+# (Steam)") or by itself at start-up when Asima Gaming → Handheld → Start in game mode is on.
+# When Steam ends (Power → Exit Steam), the session ends and the login screen comes back.
+export XDG_CURRENT_DESKTOP=KDE XDG_SESSION_DESKTOP=KDE KDE_SESSION_VERSION=6 XDG_SESSION_TYPE=wayland
+exec kwin_wayland --xwayland --no-lockscreen --exit-with-session=/usr/lib/asimaos/asimaos-game-steam

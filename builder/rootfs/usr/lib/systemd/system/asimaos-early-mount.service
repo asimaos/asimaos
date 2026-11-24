@@ -1,0 +1,25 @@
+[Unit]
+Description=Asima OS early mount (/usr EROFS+dm-verity, /etc overlay, /var)
+Documentation=file:///usr/lib/asimaos/asimaos-early-mount
+DefaultDependencies=no
+ConditionPathExists=/etc/initrd-release
+Requires=sysroot.mount
+# The script finds and (if encrypted) unlocks the pool itself; cryptsetup-pre.target lets other
+# early units order themselves before the passphrase prompt.
+After=sysroot.mount cryptsetup-pre.target systemd-udevd.service
+Wants=cryptsetup-pre.target
+# A TPM whose driver comes up late: wait for it (tpm2.target) and for "enter-initrd" to be measured
+# (systemd-pcrphase-initrd), so TPM unlock can unseal the disk key.
+After=tpm2.target systemd-pcrphase-initrd.service
+Before=initrd-root-fs.target
+OnFailure=emergency.target
+OnFailureJobMode=replace-irreversibly
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# The passphrase prompt can take as long as the person needs.
+TimeoutStartSec=infinity
+# Automated tests (and unattended setups) may pass the passphrase as a credential.
+ImportCredential=cryptsetup.*
+ExecStart=/usr/lib/asimaos/asimaos-early-mount

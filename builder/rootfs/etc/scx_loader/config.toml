@@ -1,0 +1,4 @@
+# Asima OS: the gaming CPU scheduler for everyone, from the start (D44). Asima Gaming
+# rewrites this file when another scheduler is chosen there, so the choice stays after a restart.
+default_sched = "scx_lavd"
+default_mode = "Gaming"

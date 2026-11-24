@@ -1,0 +1,17 @@
+[Unit]
+Description=Asima Shield firewall
+Documentation=file:///usr/share/doc/asimaos/DESIGN.md
+# Up before any network interface, so there is never a moment without the firewall.
+DefaultDependencies=no
+Before=network-pre.target shutdown.target
+Wants=network-pre.target
+After=local-fs.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/asimaos/asimaos-managerd --apply-shield
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,132 @@
+#!/usr/bin/bash
+# Asima OS reset (D7, D12, D13): runs inside the initramfs, called by asimaos-early-mount when
+# Asima Maintenance scheduled a reset. Afterwards the computer is a fresh installation of the running
+# version, with the account staged in Asima Maintenance (there is no first-start setup, D10).
+#
+#   asimaos-reset POOL_DEVICE PLAN_FILE VERSION FACTORY_ETC
+#
+# The fast method (D12): replace the disk keys, delete and recreate every data subvolume, keep
+# only this version, then TRIM all free space. Nothing of the old system is kept: the language,
+# the keyboard (also the start-up one, which asimaos-keyboard-sync follows), the time zone and the
+# computer's name are the ones Asima OS ships (English, US, UTC, "asimaos").
+set -euo pipefail
+
+POOL=$1 PLAN=$2 VERSION=$3 FACTORY=$4
+WORK=/run/asimaos-reset
+TOP=${WORK}/top
+log() { echo "asimaos-reset: $*" >&2; }
+
+declare -A P=()
+while IFS='=' read -r key value; do
+    [[ -n ${key} ]] && P[${key}]=${value}
+done < "${PLAN}"
+for k in USERNAME USER_ID PASSWD_LINE SHADOW_LINE ENCRYPTED; do
+    [[ -n ${P[$k]:-} ]] || { log "the reset plan is incomplete (${k})"; exit 1; }
+done
+USERNAME=${P[USERNAME]} USER_ID=${P[USER_ID]}
+[[ ${USERNAME} =~ ^[a-z_][a-z0-9_-]{0,31}$ && ${USER_ID} =~ ^[0-9]+$ ]] || { log "invalid account in the plan"; exit 1; }
+
+mkdir -p "${TOP}"
+mount -t btrfs -o subvolid=5,noatime "${POOL}" "${TOP}"
+trap 'umount -q "${TOP}" 2>/dev/null || true' EXIT
+
+# ── 1. disk keys: everything but the passphrase and recovery key staged for the fresh system ──
+if [[ ${P[ENCRYPTED]} == yes ]]; then
+    dm=""
+    for d in /sys/block/dm-*; do
+        [[ $(<"${d}/dm/name") == crypt_pool ]] && { dm=${d}; break; }
+    done
+    luks=/dev/$(ls "${dm}/slaves" | head -n1)
+    [[ -b ${luks} ]] || { log "the encrypted partition was not found"; exit 1; }
+    keep=",${P[KEEP_SLOTS]},"
+    wipe=()
+    while read -r slot kind; do
+        [[ ${slot} =~ ^[0-9]+$ ]] || continue
+        [[ ${keep} == *",${slot},"* ]] || wipe+=("${slot}")
+    done < <(systemd-cryptenroll "${luks}")
+    [[ ${#wipe[@]} -gt 0 ]] && systemd-cryptenroll --wipe-slot="$(IFS=,; echo "${wipe[*]}")" "${luks}"
+    log "disk keys replaced (kept slots ${P[KEEP_SLOTS]})"
+fi
+
+# ── 2. delete and recreate every data subvolume (nested ones first) ────────────────────────────
+for sv in @home @root @var @containers @vm @flatpak @nix @snapshots @data; do
+    if [[ -d ${TOP}/${sv} ]]; then
+        btrfs subvolume list -o "${TOP}/${sv}" | awk '{print $NF}' | sort -r | while read -r nested; do
+            btrfs subvolume delete -c "${TOP}/${nested}" >/dev/null
+        done
+        btrfs subvolume delete -c "${TOP}/${sv}" >/dev/null
+    fi
+    btrfs subvolume create "${TOP}/${sv}" >/dev/null
+done
+chmod 0700 "${TOP}/@root" "${TOP}/@snapshots"
+log "data deleted"
+
+# ── 3. only this version stays ─────────────────────────────────────────────────────────────────
+for f in "${TOP}"/@slots/usr_*.erofs "${TOP}"/@slots/verity_*.img; do
+    [[ -e ${f} ]] || continue
+    case ${f##*/} in usr_${VERSION}.erofs|verity_${VERSION}.img) ;; *) rm -f "${f}" ;; esac
+done
+for d in "${TOP}"/@slots/staged/*; do
+    if [[ -d ${d} && ${d##*/} != "${VERSION}" ]]; then rm -rf "${d}"; fi
+done
+
+# The start menu (services/asimaos-update/src/boot.rs) keeps only this version, as
+# "Asima OS (current)", already marked good; the other versions' boot images and entries go.
+# Asima Rescue stays. ESP_DIR VERSION
+reset_start_menu() {
+    local esp=$1 version=$2 f
+    for f in "${esp}"/EFI/Asima/asimaos_*.efi; do
+        if [[ -e ${f} && ${f##*/} != "asimaos_${version}.efi" ]]; then rm -f "${f}"; fi
+    done
+    mkdir -p "${esp}/loader/entries"
+    for f in "${esp}"/loader/entries/asimaos-current*.conf "${esp}"/loader/entries/asimaos-backup*.conf \
+             "${esp}"/loader/entries/asimaos-failed*.conf; do
+        if [[ -e ${f} ]]; then rm -f "${f}"; fi
+    done
+    printf '# Asima OS start menu entry, kept up to date by Asima Updater.\ntitle    Asima OS (current)\nversion  %s\nsort-key asimaos-1\nuki      /EFI/Asima/asimaos_%s.efi\n' \
+        "${version}" "${version}" > "${esp}/loader/entries/asimaos-current.conf"
+    return 0
+}
+ESP=""
+var=/sys/firmware/efi/efivars/LoaderDevicePartUUID-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+if [[ -r ${var} ]]; then
+    { uuid=$(<"${var}"); } 2>/dev/null
+    uuid=${uuid//[^0-9A-Fa-f-]/}
+    [[ -e /dev/disk/by-partuuid/${uuid,,} ]] && ESP=/dev/disk/by-partuuid/${uuid,,}
+fi
+if [[ -n ${ESP} ]]; then
+    mkdir -p "${WORK}/esp"
+    mount -t vfat "${ESP}" "${WORK}/esp"
+    reset_start_menu "${WORK}/esp" "${VERSION}"
+    umount "${WORK}/esp"
+fi
+
+# ── 4. the fresh system's /etc: the shipped defaults, the account and install.conf ────────────
+UPPER=${TOP}/@data/overlay/etc/upper
+mkdir -p "${UPPER}/asimaos" "${TOP}/@data/overlay/etc/work" "${TOP}/@data/flags"
+chmod 0755 "${UPPER}" "${UPPER}/asimaos"
+printf '# Written by the factory reset.\nINSTALLED_VERSION=%s\nENCRYPTED=%s\n' "${VERSION}" "${P[ENCRYPTED]}" \
+    > "${UPPER}/asimaos/install.conf"
+{ cat "${FACTORY}/passwd"; echo "${P[PASSWD_LINE]}"; } > "${UPPER}/passwd"
+{ awk -F: -v OFS=: -v u="${USERNAME}" '$1 == "wheel" { $4 = ($4 == "" ? u : $4 "," u) } { print }' "${FACTORY}/group"
+  echo "${USERNAME}:x:${USER_ID}:"; } > "${UPPER}/group"
+(umask 077
+ { cat "${FACTORY}/shadow"; echo "${P[SHADOW_LINE]}"; } > "${UPPER}/shadow"
+ { awk -F: -v OFS=: -v u="${USERNAME}" '$1 == "wheel" { $4 = ($4 == "" ? u : $4 "," u) } { print }' "${FACTORY}/gshadow"
+   echo "${USERNAME}:!::"; } > "${UPPER}/gshadow")
+for ids in subuid subgid; do
+    { cat "${FACTORY}/${ids}" 2>/dev/null || true; echo "${USERNAME}:100000:65536"; } > "${UPPER}/${ids}"
+done
+chmod 0644 "${UPPER}/passwd" "${UPPER}/group" "${UPPER}/subuid" "${UPPER}/subgid"
+
+HOME_DIR=${TOP}/@home/${USERNAME}
+mkdir -p "${HOME_DIR}"
+[[ -d ${FACTORY}/skel ]] && cp -a "${FACTORY}/skel/." "${HOME_DIR}/"
+chown -R "${USER_ID}:${USER_ID}" "${HOME_DIR}"
+chmod 0700 "${HOME_DIR}"
+log "account ${USERNAME} created"
+
+# ── 5. TRIM: freed blocks are discarded, so old data can't be read back from the SSD ──────────
+fstrim "${TOP}" || log "TRIM is not supported by this disk"
+sync
+log "Asima OS ${VERSION} is fresh"

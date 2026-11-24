@@ -1,0 +1,14 @@
+[Unit]
+Description=Asima OS: backup of /home (restic)
+Documentation=file:///usr/share/doc/asimaos/DESIGN.md
+ConditionPathExists=/etc/asimaos/backup.conf
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/asimaos/asimaos-maintenanced --backup-run
+# It reads /home; it never changes it.
+ProtectHome=read-only
+Nice=10
+IOSchedulingClass=idle

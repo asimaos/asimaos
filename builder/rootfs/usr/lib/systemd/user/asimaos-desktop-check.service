@@ -1,0 +1,13 @@
+[Unit]
+Description=Asima OS: offer the previous version when the desktop keeps failing after an update
+Documentation=file:///usr/lib/asimaos/asimaos-desktop-check
+PartOf=graphical-session.target
+After=plasma-workspace.target
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/asimaos/asimaos-desktop-check
+Slice=background.slice
+
+[Install]
+WantedBy=plasma-workspace.target

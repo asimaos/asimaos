@@ -1,0 +1,9 @@
+[Unit]
+Description=Asima OS: keep the graphics card %I for virtual machines (GPU passthrough)
+Documentation=file:///usr/lib/asimaos/asimaos-passthrough
+
+[Service]
+Type=oneshot
+# The IOMMU boot add-on goes on the ESP, mounted only for this program.
+ExecStart=/usr/lib/asimaos/asimaos-esp /usr/lib/asimaos/asimaos-passthrough on %I
+PrivateMounts=yes

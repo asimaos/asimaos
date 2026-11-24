@@ -1,0 +1,5 @@
+#!/usr/bin/bash
+# asimaos-rescue-engine: Asima Rescue's actions (inside the Asima Rescue system only).
+# The work is done by asimaos-engine (services/asimaos-engine), which sits next to this file;
+# `asimaos-rescue-engine --help` lists the options.
+exec "${ASIMAOS_ENGINE:-$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/asimaos-engine}" rescue "$@"

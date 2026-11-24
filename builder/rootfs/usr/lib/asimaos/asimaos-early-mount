@@ -1,0 +1,428 @@
+#!/usr/bin/bash
+# Asima OS early mount — runs inside the initramfs once the tmpfs root is mounted at /sysroot
+# (root=tmpfs). Two modes, one code path:
+#
+#   installed (default): the Btrfs pool on the disk this computer started from
+#     encrypted (default, partition label crypt_pool): unlocked here with systemd-cryptsetup,
+#       which asks for the passphrase or uses the TPM / recovery key; plain (label asimaos_pool,
+#       decision D9): mounted directly
+#     /usr  <- @slots/usr_<ver>.erofs verified by dm-verity
+#     /etc  <- OverlayFS: lower = /usr/share/factory/etc, upper = @data (persistent)
+#     /var  <- @var subvolume; /home, /root, containers, VMs, Flatpak, snapshots, reserve: their
+#              subvolumes (mounted here, not in fstab, so one path serves both pool kinds)
+#
+#   live (asimaos.live on cmdline): booted from the Asima OS ISO / USB stick
+#     /usr  <- ISO:/asimaos/slots/usr_<ver>.erofs verified by dm-verity
+#     /etc  <- OverlayFS with upper in RAM;  /var <- tmpfs
+#
+# Kernel command line (baked into the UKI):
+#   asimaos.version=<ver>   which /usr image to open
+#   asimaos.usrhash=<hash>  dm-verity root hash of that image
+# (Deliberately NOT roothash=/usrhash=, so systemd's own verity generator stays out of the way.)
+set -euo pipefail
+
+log() { echo "asimaos-early-mount: $*" >&2; }
+
+# A trial start of a new version (systemd-boot set LoaderBootCountPath: the entry still has tries)
+# that fails here restarts the computer, so the start menu counts the failed try and, after three,
+# starts the backup (docs/architecture.md §8). Any other start goes to the emergency target as before.
+on_exit() {
+    local rc=$?
+    if (( rc != 0 )) && [[ -e /sys/firmware/efi/efivars/LoaderBootCountPath-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f ]]; then
+        echo "asimaos-early-mount: this start of a new version failed; restarting so the start menu counts it" >&2
+        sync
+        sleep 5
+        systemctl reboot --force || reboot -f
+    fi
+    return "${rc}"
+}
+trap on_exit EXIT
+
+CMDLINE="$(</proc/cmdline)"
+arg() {
+    local word
+    for word in ${CMDLINE}; do
+        [[ "${word}" == "$1="* ]] && { echo "${word#*=}"; return 0; }
+    done
+    return 1
+}
+flag() {
+    local word
+    for word in ${CMDLINE}; do [[ "${word}" == "$1" ]] && return 0; done
+    return 1
+}
+
+VERSION="$(arg asimaos.version)" || { log "missing asimaos.version= on kernel command line"; exit 1; }
+USRHASH="$(arg asimaos.usrhash)" || { log "missing asimaos.usrhash= on kernel command line"; exit 1; }
+
+open_usr() {  # <erofs image> <verity hash tree>
+    [[ -f "$1" && -f "$2" ]] || { log "/usr image ${VERSION} not found ($1)"; exit 1; }
+    log "opening /usr ${VERSION} with dm-verity"
+    veritysetup open "$1" usr "$2" "${USRHASH}"
+    mkdir -p /sysroot/usr
+    mount -t erofs -o ro /dev/mapper/usr /sysroot/usr
+}
+
+# Puts /etc's changes and @var back as they were before the update to version $1.
+rollback_state() {
+    local v=$1 top=/run/initramfs/pool-top snap stamp keep rc=0
+    [[ ${v} =~ ^[0-9]{4}\.[0-9]{2}\.[0-9]{2}\.[0-9]+$ ]] || return 1
+    mkdir -p "${top}"
+    mount -t btrfs -o "rw,${BTRFS_OPTS},subvolid=5" "${POOL}" "${top}" || return 1
+    snap=${top}/@snapshots/update/${v}
+    if [[ -d ${snap}/data/overlay/etc/upper && -d ${snap}/var ]]; then
+        # /etc: this computer's changes as they were before the update (a fresh overlay work dir).
+        rm -rf "${DATA}/overlay/etc/upper.rollback"
+        if cp -a --reflink=auto "${snap}/data/overlay/etc/upper" "${DATA}/overlay/etc/upper.rollback"; then
+            rm -rf "${DATA}/overlay/etc/upper" "${DATA}/overlay/etc/work"
+            mv "${DATA}/overlay/etc/upper.rollback" "${DATA}/overlay/etc/upper"
+            mkdir -p "${DATA}/overlay/etc/work"
+        else
+            rm -rf "${DATA}/overlay/etc/upper.rollback"
+            rc=1
+        fi
+        # /var: the snapshot, with the journal and crash records of the failed starts kept.
+        stamp=$(date +%s)
+        if [[ ${rc} == 0 ]] && mv "${top}/@var" "${top}/@var.failed-${stamp}"; then
+            if btrfs subvolume snapshot "${snap}/var" "${top}/@var" >/dev/null; then
+                for keep in log/journal lib/systemd/pstore lib/systemd/coredump; do
+                    [[ -d ${top}/@var.failed-${stamp}/${keep} ]] || continue
+                    rm -rf "${top}/@var/${keep}"
+                    mkdir -p "${top}/@var/${keep%/*}"
+                    cp -a --reflink=auto "${top}/@var.failed-${stamp}/${keep}" "${top}/@var/${keep}" || true
+                done
+                btrfs subvolume delete "${top}/@var.failed-${stamp}" >/dev/null 2>&1 || true
+            else
+                mv "${top}/@var.failed-${stamp}" "${top}/@var"
+                rc=1
+            fi
+        fi
+    else
+        log "no snapshot from before the update to ${v}"
+        rc=1
+    fi
+    umount "${top}"
+    rmdir "${top}" 2>/dev/null || true
+    [[ ${rc} == 0 ]] && log "settings and system state are back as they were before the update to ${v}"
+    return ${rc}
+}
+
+mount_etc() {  # <upper dir> <work dir>
+    mkdir -p "$1" "$2" /sysroot/etc
+    # The upper dir's mode becomes /etc's mode: it must always be root:root 0755.
+    chown 0:0 "$1"
+    chmod 0755 "$1"
+    # The lower layer (the factory /etc inside /usr) is a different file system after every
+    # update. The kernel only allows that when the overlay never used index, metacopy,
+    # redirect_dir or xino (Documentation/filesystems/overlayfs.rst, "Changes to underlying
+    # filesystems"); with index on, the mount after an update fails with ESTALE.
+    mount -t overlay overlay \
+        -o "lowerdir=/sysroot/usr/share/factory/etc,upperdir=$1,workdir=$2,index=off,metacopy=off,redirect_dir=off,xino=off" \
+        /sysroot/etc
+}
+
+# The live session (ISO / USB stick only): the user "live" is signed in automatically and the
+# installer opens. Like on any live stick, that user may do anything without a password; none of
+# this exists on an installed system, which only ever has the account made by the installer.
+live_session() {  # <upper dir of /etc>
+    local up=$1 f=/sysroot/usr/share/factory/etc days home=/sysroot/home/live
+    days=$(( $(date +%s) / 86400 ))
+    { cat "${f}/passwd"; echo "live:x:1000:1000:Live session:/home/live:/bin/bash"; } > "${up}/passwd"
+    { awk -F: -v OFS=: '$1 == "wheel" { $4 = ($4 == "" ? "live" : $4 ",live") } { print }' "${f}/group"
+      echo "live:x:1000:"; } > "${up}/group"
+    (umask 077
+     { cat "${f}/shadow" 2>/dev/null || true; echo "live::${days}:0:99999:7:::"; } > "${up}/shadow"
+     { cat "${f}/gshadow" 2>/dev/null || true; echo "live:!::"; } > "${up}/gshadow")
+    printf '[Autologin]\nUser=live\nSession=plasma\n' > "${up}/plasmalogin.conf"
+    mkdir -p "${up}/sudoers.d" "${up}/polkit-1/rules.d" "${up}/xdg/autostart"
+    (umask 0337; printf 'live ALL=(ALL:ALL) NOPASSWD: ALL\n' > "${up}/sudoers.d/90-asimaos-live")
+    cat > "${up}/polkit-1/rules.d/49-asimaos-live.rules" <<'EOF'
+// Asima OS live session only: the person at the computer may do anything without a password.
+polkit.addRule(function (action, subject) {
+    if (subject.user == "live" && subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+});
+EOF
+    cp /sysroot/usr/share/asimaos/live/io.github.asimaos.Installer.desktop "${up}/xdg/autostart/"
+
+    mkdir -p "${home}/Desktop" "${home}/.config" "${home}/.local/share/applications"
+    [[ -d ${f}/skel ]] && cp -a "${f}/skel/." "${home}/"
+    install -m 0755 /sysroot/usr/share/asimaos/live/io.github.asimaos.Installer.desktop "${home}/Desktop/"
+    cp /sysroot/usr/share/asimaos/live/io.github.asimaos.Installer.desktop "${home}/.local/share/applications/"
+    # The installer is the first thing to see. KDE's Welcome Center opens by itself in live
+    # sessions and at a first sign-in, on top of it: here it counts as seen, with its starter off
+    # (installed systems keep it for the first sign-in). No screen lock without a password.
+    local v
+    v=$(grep -o -m1 '<release version="[^"]*"' /sysroot/usr/share/metainfo/org.kde.plasma-welcome.appdata.xml 2>/dev/null || true)
+    v=${v#*\"}; v=${v%\"}
+    printf '[General]\nLastSeenVersion=%s\nLiveEnvironment=false\n' "${v}" > "${home}/.config/plasma-welcomerc"
+    printf '[Module-kded_plasma_welcome]\nautoload=false\n' > "${home}/.config/kded6rc"
+    printf '[Daemon]\nAutolock=false\nLockOnResume=false\n' > "${home}/.config/kscreenlockerrc"
+    chown -R 1000:1000 "${home}"
+    chmod 0700 "${home}"
+}
+
+if flag asimaos.live; then
+    # ---------------------------------------------------------------- live ISO / USB
+    LIVE=/run/initramfs/live
+    LIVE_DEV=""
+    # udev's by-label link (USB sticks), else probe every block device directly (CD/DVD drives).
+    for _ in $(seq 120); do
+        if [[ -e /dev/disk/by-label/ASIMAOS_LIVE ]]; then
+            LIVE_DEV=/dev/disk/by-label/ASIMAOS_LIVE
+        else
+            LIVE_DEV="$(blkid -c /dev/null -l -o device -t LABEL=ASIMAOS_LIVE 2>/dev/null || true)"
+        fi
+        [[ -n "${LIVE_DEV}" ]] && break
+        sleep 0.5
+    done
+    [[ -n "${LIVE_DEV}" ]] || { log "live medium (label ASIMAOS_LIVE) not found"; exit 1; }
+    log "live medium: ${LIVE_DEV}"
+
+    mkdir -p "${LIVE}"
+    mount -t iso9660 -o ro "${LIVE_DEV}" "${LIVE}"
+    open_usr "${LIVE}/asimaos/slots/usr_${VERSION}.erofs" "${LIVE}/asimaos/slots/verity_${VERSION}.img"
+
+    RW=/run/initramfs/live-rw
+    mkdir -p "${RW}/etc/upper"
+    # A live session must not try to mount or unlock the installed pool.
+    printf '# Asima OS live session: no persistent mounts\n' > "${RW}/etc/upper/fstab"
+    printf '# Asima OS live session: no encrypted volumes\n' > "${RW}/etc/upper/crypttab"
+    printf 'asimaos-live\n' > "${RW}/etc/upper/hostname"
+    live_session "${RW}/etc/upper"
+    mount_etc "${RW}/etc/upper" "${RW}/etc/work"
+
+    mkdir -p /sysroot/var
+    mount -t tmpfs -o mode=0755 tmpfs /sysroot/var
+    log "live session: /usr ${VERSION} from ISO, /etc and /var in RAM"
+else
+    # ---------------------------------------------------------------- installed system
+    SLOTS=/run/initramfs/slots
+    DATA=/run/initramfs/data
+    BTRFS_OPTS=noatime,compress=zstd:3
+
+    # The pool partition on the disk systemd-boot was started from (it records that ESP in
+    # LoaderDevicePartUUID), so a second Asima OS disk, e.g. a cloned backup, is never picked by
+    # mistake. With $1 = 1, or without that record, a pool found by its partition label is also
+    # accepted. Prints "<label> <device>".
+    find_pool() {
+        local var=/sys/firmware/efi/efivars/LoaderDevicePartUUID-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+        local uuid="" esp disk part key value name
+        if [[ -r ${var} ]]; then
+            { uuid=$(<"${var}"); } 2>/dev/null   # 4 attribute bytes + UTF-16 text
+            uuid=${uuid//[^0-9A-Fa-f-]/}
+            esp=$(readlink -f "/dev/disk/by-partuuid/${uuid,,}" 2>/dev/null || true)
+            if [[ -n ${uuid} && -b ${esp} ]]; then
+                disk=$(readlink -f "/sys/class/block/${esp##*/}/..")
+                for part in "${disk}"/*/partition; do
+                    part=${part%/partition}
+                    name=""
+                    while IFS='=' read -r key value; do
+                        [[ ${key} == PARTNAME ]] && name=${value}
+                    done < "${part}/uevent"
+                    if [[ ${name} == crypt_pool || ${name} == asimaos_pool ]]; then
+                        echo "${name} /dev/${part##*/}"
+                        return 0
+                    fi
+                done
+            fi
+            # The boot disk's devices may still be appearing: wait for them before guessing.
+            [[ ${1:-0} == 1 ]] || return 1
+        fi
+        for name in crypt_pool asimaos_pool; do
+            if [[ -e /dev/disk/by-partlabel/${name} ]]; then
+                echo "${name} $(readlink -f "/dev/disk/by-partlabel/${name}")"
+                return 0
+            fi
+        done
+        return 1
+    }
+
+    FOUND=""
+    for i in $(seq 240); do   # up to 2 minutes: slow USB disks
+        FOUND="$(find_pool $(( i > 20 )))" && break   # after 10 s, also accept a label match
+        sleep 0.5
+    done
+    [[ -n ${FOUND} ]] || { log "no Asima OS pool found on this computer"; exit 1; }
+    LABEL=${FOUND%% *}
+    POOL=${FOUND#* }
+    if [[ ${LABEL} == crypt_pool ]]; then
+        log "unlocking the encrypted pool on ${POOL}"
+        # Same tool and prompts as a crypttab entry. (Test automation can pass the
+        # cryptsetup.passphrase credential.)
+        opts=luks,discard
+        # TPM unlock is set up (a tpm2 key slot): wait up to 10 s for the chip, which some PCs
+        # bring up a moment late, then tell systemd-cryptsetup to use it. If the TPM refuses
+        # (another start-up image, changed Secure Boot settings) the passphrase is asked instead.
+        if systemd-cryptenroll "${POOL}" 2>/dev/null | awk '{print $2}' | grep -qx tpm2; then
+            for _ in $(seq 40); do [[ -e /dev/tpmrm0 ]] && break; sleep 0.25; done
+            if [[ -e /dev/tpmrm0 ]]; then
+                opts+=",tpm2-device=auto"
+                # TPM unlock with systemd-pcrlock (PCR 4 + PCR 7): systemd-cryptsetup needs the
+                # policy's description, which lives in /var on the locked disk. systemd-pcrlock keeps
+                # a copy on the ESP that systemd-stub hands to the initramfs as a credential; it is
+                # not secret (the TPM holds and enforces the policy itself), so a null-key copy is fine.
+                for cred in /.extra/global_credentials/pcrlock.*.cred; do
+                    [[ -f ${cred} ]] || continue
+                    mkdir -p /run/systemd
+                    systemd-creds decrypt --allow-null --name= "${cred}" /run/systemd/pcrlock.json 2>/dev/null \
+                        && { log "TPM unlock: the start-up policy ($(basename "${cred}")) is ready"; break; }
+                done
+                drv=$(readlink -f /sys/class/tpm/tpm0/device/driver 2>/dev/null || true)
+                log "TPM unlock is set up: using the TPM (driver ${drv##*/})"
+            else
+                log "TPM unlock is set up, but no TPM chip appeared: asking for the passphrase"
+            fi
+        fi
+        /usr/lib/systemd/systemd-cryptsetup attach crypt_pool "${POOL}" none "${opts}" \
+            || { log "the pool could not be unlocked"; exit 1; }
+        POOL=/dev/mapper/crypt_pool
+    else
+        log "the pool on ${POOL} is not encrypted"
+    fi
+    [[ -b ${POOL} ]] || { log "${POOL} is missing"; exit 1; }
+
+    mkdir -p "${SLOTS}" "${DATA}"
+    # @data first (read-write), then @slots read-only at the VFS level
+    # (the subvolume itself stays writable so updates/dedup can work in a private namespace).
+    mount -t btrfs -o "rw,${BTRFS_OPTS},subvol=/@data" "${POOL}" "${DATA}"
+
+    # Half-written parts of an interrupted update never count (an update that is resumed writes
+    # them again, docs/architecture.md §8). Nothing else runs yet, so nothing is writing them.
+    mkdir -p /run/initramfs/slots-rw
+    if mount -t btrfs -o "rw,${BTRFS_OPTS},subvol=/@slots" "${POOL}" /run/initramfs/slots-rw; then
+        for f in /run/initramfs/slots-rw/.*.partial /run/initramfs/slots-rw/staged/*/.*.partial \
+                 /run/initramfs/slots-rw/staged/*/migrations/.*.partial \
+                 /run/initramfs/slots-rw/staged/*/parts/*/.*.partial; do
+            [[ -f ${f} ]] && rm -f -- "${f}" && log "removed ${f##*/} (an interrupted update)"
+        done
+        # The OS images are compressed already: files written here later (updates) are stored as
+        # they are, not compressed a second time. New files inherit the flag.
+        chattr +m /run/initramfs/slots-rw /run/initramfs/slots-rw/staged 2>/dev/null || true
+        umount /run/initramfs/slots-rw
+    fi
+    rmdir /run/initramfs/slots-rw 2>/dev/null || true
+    mount -t btrfs -o "ro,${BTRFS_OPTS},subvol=/@slots" "${POOL}" "${SLOTS}"
+
+    open_usr "${SLOTS}/usr_${VERSION}.erofs" "${SLOTS}/verity_${VERSION}.img"
+
+    # A reset scheduled in Asima Maintenance runs now, before anything of the old system is used.
+    if [[ -f ${DATA}/flags/reset.plan ]] && grep -q '"scheduled": true' "${DATA}/flags/reset.json" 2>/dev/null; then
+        log "resetting to a fresh installation of Asima OS ${VERSION}"
+        cp "${DATA}/flags/reset.plan" /run/asimaos-reset.plan
+        umount "${DATA}"
+        /usr/lib/asimaos/asimaos-reset "${POOL}" /run/asimaos-reset.plan "${VERSION}" /sysroot/usr/share/factory/etc \
+            || { log "the reset failed"; exit 1; }
+        rm -f /run/asimaos-reset.plan
+        mount -t btrfs -o "rw,${BTRFS_OPTS},subvol=/@data" "${POOL}" "${DATA}"
+    fi
+
+    # Asima Maintenance → System changes: factory versions restored now, never while /etc is
+    # mounted: one file (restore-etc), or every setting for "Reset settings" (reset-settings-etc).
+    # Each line is a path relative to /etc, checked by asimaos-maintenanced.
+    for list in restore-etc reset-settings-etc; do
+        [[ -s ${DATA}/flags/${list} ]] || continue
+        while IFS= read -r rel; do
+            [[ -n ${rel} && ${rel} != /* && ${rel} != *..* ]] || continue
+            rm -rf "${DATA}/overlay/etc/upper/${rel}"
+        done < "${DATA}/flags/${list}"
+        rm -f "${DATA}/flags/${list}"
+        log "restored the factory version of changed /etc files (${list})"
+    done
+
+    # After a failed update whose migration steps had changed the system, the settings
+    # and the system state go back to the snapshot taken before it (asimaos-updaterd marks this
+    # after the fallback). /home is never touched; the failed starts' journal and crash records
+    # stay for Asima Maintenance. Nothing here may stop the start: failures are only logged.
+    if [[ -s ${DATA}/flags/rollback ]]; then
+        rollback_state "$(head -n1 "${DATA}/flags/rollback")" || log "settings stay as they are"
+        rm -f "${DATA}/flags/rollback"
+    fi
+
+    mount_etc "${DATA}/overlay/etc/upper" "${DATA}/overlay/etc/work"
+
+    mount_subvol() {  # <subvolume> <mount point> [mode of the mounted directory]
+        mkdir -p "$2"
+        mount -t btrfs -o "rw,${BTRFS_OPTS},subvol=/$1" "${POOL}" "$2"
+        [[ -z ${3:-} ]] || chmod "$3" "$2"
+    }
+    # Subvolumes added by later versions (@nix since Beta 5) are made on the first start of a
+    # version that needs them; a reset makes them again like the others.
+    mkdir -p /run/initramfs/pool-top
+    if mount -t btrfs -o "rw,${BTRFS_OPTS},subvolid=5" "${POOL}" /run/initramfs/pool-top; then
+        for sv in @nix; do
+            [[ -d /run/initramfs/pool-top/${sv} ]] || { btrfs subvolume create "/run/initramfs/pool-top/${sv}" >/dev/null \
+                && log "made the new subvolume ${sv}"; }
+        done
+        umount /run/initramfs/pool-top
+    fi
+    rmdir /run/initramfs/pool-top 2>/dev/null || true
+
+    mount_subvol @var /sysroot/var
+    mount_subvol @home /sysroot/home
+    mount_subvol @root /sysroot/root 0700
+    mount_subvol @containers /sysroot/var/lib/containers
+    mount_subvol @vm /sysroot/var/lib/libvirt
+    mount_subvol @flatpak /sysroot/var/lib/flatpak
+    mount_subvol @nix /sysroot/nix               # each person's Nix programs, outside the OS image (D28)
+    # AppArmor's compiled policy stays on disk while the other caches live in RAM (var-cache.mount).
+    mkdir -p /sysroot/var/lib/asimaos/apparmor-cache
+    mount_subvol @snapshots /run/asimaos-snapshots 0700   # /run carries over into the system
+    mount_subvol @reserve /run/initramfs/reserve
+
+    # Everyone's daily snapshots of /home, read-only, at /home/.snapshots/<date>/<user>: each
+    # person can open only their own folder there, as the snapshot keeps the permissions.
+    mkdir -p /run/asimaos-snapshots/home /sysroot/home/.snapshots
+    mount -o bind,ro /run/asimaos-snapshots/home /sysroot/home/.snapshots \
+        || log "the snapshots of /home could not be shown at /home/.snapshots"
+
+    # The 2 GB emergency reserve (docs/architecture.md §5): made with fallocate once the pool has room
+    # for it (the first start), released here when the disk is so full that the system could not
+    # start or be cleaned up. Asima Maintenance shows both (health check "reserve").
+    reserve() {
+        local ballast=/run/initramfs/reserve/.emergency_ballast free meta_free
+        read -r free meta_free < <(btrfs filesystem usage -b /run/initramfs/reserve 2>/dev/null | awk '
+            /Free \(estimated\):/ { free = $3 }
+            /^Metadata,/ { split($0, a, /Size:|, Used:| \(/); meta = a[2] - a[3] }
+            /Device unallocated:/ { unalloc = $3 }
+            END { print free + 0, meta + unalloc + 0 }')
+        [[ ${free} =~ ^[0-9]+$ && ${free} -gt 0 ]] || return 0
+        if [[ -f ${ballast} ]]; then
+            if (( free < 1024 ** 3 || meta_free < 256 * 1024 ** 2 )); then
+                rm -f "${ballast}"
+                : > /run/initramfs/reserve/.released
+                log "the disk is almost full: released the 2 GB emergency reserve"
+            fi
+        elif (( free > 6 * 1024 ** 3 )); then      # 2 GB taken, at least 4 GB stay free
+            fallocate -l 2GiB "${ballast}" || rm -f "${ballast}"
+            rm -f /run/initramfs/reserve/.released
+        fi
+    }
+    reserve
+
+    # Lockdown (integrity): not even root may change the running kernel. Only where it can't
+    # break anything: Secure Boot is on and the Asima OS key was approved on the blue MokManager
+    # screen, so the kernel trusts the NVIDIA drivers signed with it (stage 15). Elsewhere
+    # (Secure Boot off, or the key only in the firmware's db) unsigned NVIDIA drivers would stop
+    # loading, so the kernel stays as it is.
+    lockdown() {
+        local sb=/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c f
+        local moklist="" trusted=""
+        [[ -w /sys/kernel/security/lockdown ]] || return 0
+        [[ -f ${sb} && $(od -An -tu1 -j4 -N1 "${sb}" | tr -d ' ') == 1 ]] || return 0
+        for f in /sys/firmware/efi/mok-variables/MokListRT /sys/firmware/efi/efivars/MokListRT*-605dab50-e046-4300-abb6-3dd810dd8b23; do
+            [[ -f ${f} ]] && grep -aq 'Asima OS Secure Boot' "${f}" && moklist=1
+        done
+        for f in /sys/firmware/efi/mok-variables/MokListTrustedRT /sys/firmware/efi/efivars/MokListTrustedRT-605dab50-e046-4300-abb6-3dd810dd8b23; do
+            [[ -f ${f} ]] && trusted=1
+        done
+        if [[ -n ${moklist} && -n ${trusted} ]]; then
+            echo integrity > /sys/kernel/security/lockdown && log "kernel lockdown: integrity"
+        else
+            log "kernel lockdown off: the Asima OS key is not an approved key the kernel trusts for drivers"
+        fi
+    }
+    lockdown
+    log "mounted /usr ${VERSION}, /etc overlay (@data), /var and the data subvolumes"
+fi

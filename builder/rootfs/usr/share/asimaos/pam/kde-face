@@ -1,0 +1,18 @@
+#%PAM-1.0
+# Asima OS: the lock screen's Face button (Plasma's kde-face service, a method next to the password
+# and the fingerprint). asimaos-faced puts this file at /etc/pam.d/kde-face while someone has a face
+# set up, and takes it away when nobody has, so the button shows only then. The camera looks for a
+# few seconds each time the button is chosen; a normal webcam also wants two blinks (D47).
+
+auth       required     pam_shells.so
+auth       requisite    pam_nologin.so
+auth       requisite    pam_faillock.so         preauth
+auth       required     pam_asimaos_face.so      use=unlock
+auth       optional     pam_permit.so
+auth       required     pam_env.so
+
+account    include      system-local-login
+
+password   required     pam_deny.so
+
+session    include      system-local-login

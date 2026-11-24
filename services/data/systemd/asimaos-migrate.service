@@ -1,0 +1,19 @@
+[Unit]
+Description=Asima OS: migration steps of a new version (once, at its first start)
+Documentation=file:///usr/share/doc/asimaos/DESIGN.md
+# After /etc, /var and the early system setup, before the usual services start, so they find
+# their files in the new version's shape.
+DefaultDependencies=no
+After=sysinit.target local-fs.target
+Before=basic.target shutdown.target
+Conflicts=shutdown.target
+ConditionPathIsDirectory=/run/initramfs/slots/staged
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/asimaos/asimaos-updaterd --run-migrations
+TimeoutStartSec=10min
+
+[Install]
+WantedBy=basic.target

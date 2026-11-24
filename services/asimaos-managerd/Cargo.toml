@@ -1,0 +1,12 @@
+[package]
+name = "asimaos-managerd"
+description = "Asima Manager service: Shield firewall, battery charge limit, lighting, sign-in settings (io.github.asimaos.Manager1)"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+asimaos-svc = { path = "../asimaos-svc" }
+anyhow.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+zbus.workspace = true

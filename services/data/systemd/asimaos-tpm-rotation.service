@@ -1,0 +1,14 @@
+[Unit]
+Description=Asima OS: TPM unlock set up again, second step (the old key slot goes once the new one works)
+Documentation=file:///usr/share/doc/asimaos/DESIGN.md
+ConditionPathExists=/var/lib/asimaos/tpm2-rotation.json
+After=local-fs.target tpm2.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/asimaos/asimaos-maintenanced --tpm-rotation
+NoNewPrivileges=yes
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target

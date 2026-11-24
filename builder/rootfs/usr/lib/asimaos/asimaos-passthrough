@@ -1,0 +1,86 @@
+#!/usr/bin/bash
+# GPU passthrough for Asima Dev: one graphics card kept for virtual machines.
+# Runs as root in small units that Asima Dev starts through systemd (the administrator's password):
+#
+#   asimaos-passthrough on ADDRESS   asimaos-passthrough-on@ADDRESS.service, with the ESP mounted
+#                                   (asimaos-esp): remembers the card, adds the IOMMU boot add-on
+#                                   and lets VMs lock their memory; it takes effect after a restart
+#   asimaos-passthrough off          asimaos-passthrough-off.service: all of that undone
+#   asimaos-passthrough bind         asimaos-passthrough-bind.service, at every start before the login
+#                                   screen: hands the card (every function of it) to vfio-pci
+#
+# The card that shows the screen at start-up is never taken, and a PC needs a second one.
+set -euo pipefail
+CONF=/etc/asimaos/passthrough.conf
+ADDON=/usr/lib/asimaos/addons/asimaos-iommu.addon.efi
+ESP_ADDON=/boot/loader/addons/asimaos-iommu.addon.efi
+USER_DROPIN=/etc/systemd/system/user@.service.d/90-asimaos-passthrough.conf
+MANAGER_DROPIN=/etc/systemd/user.conf.d/90-asimaos-passthrough.conf
+log() { echo "asimaos-passthrough: $*" >&2; }
+
+is_display() { [[ $(cat "/sys/bus/pci/devices/$1/class" 2>/dev/null) == 0x03* ]]; }
+
+case ${1:-} in
+on)
+    addr=${2:-}
+    [[ ${addr} =~ ^[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\.[0-7]$ ]] || { log "not a PCI address: ${addr}"; exit 2; }
+    is_display "${addr}" || { log "${addr} is not a graphics card"; exit 1; }
+    [[ $(cat "/sys/bus/pci/devices/${addr}/boot_vga" 2>/dev/null) == 1 ]] && { log "${addr} shows the screen"; exit 1; }
+    others=0
+    for d in /sys/bus/pci/devices/*; do
+        [[ ${d##*/} == "${addr%.*}".* ]] && continue
+        is_display "${d##*/}" && others=$((others + 1))
+    done
+    (( others > 0 )) || { log "this is the only graphics card"; exit 1; }
+    install -d -m 0755 /etc/asimaos
+    printf '# GPU passthrough (Asima Dev): this card is kept for virtual machines.\nGPU=%s\n' "${addr%.*}" > "${CONF}"
+    mountpoint -q /boot || { log "the ESP is not mounted"; exit 1; }
+    install -D -m 0644 "${ADDON}" "${ESP_ADDON}"
+    sync -f /boot
+    # VMs with a card lock all their memory (VFIO): no limit for the session's own libvirt.
+    install -D -m 0644 /dev/stdin "${USER_DROPIN}" <<'EOF'
+# GPU passthrough (Asima Dev): virtual machines with a graphics card lock their memory.
+[Service]
+LimitMEMLOCK=infinity
+EOF
+    install -D -m 0644 /dev/stdin "${MANAGER_DROPIN}" <<'EOF'
+# GPU passthrough (Asima Dev): virtual machines with a graphics card lock their memory.
+[Manager]
+DefaultLimitMEMLOCK=infinity
+EOF
+    log "${addr%.*} is kept for virtual machines from the next start"
+    ;;
+off)
+    rm -f "${CONF}" "${USER_DROPIN}" "${MANAGER_DROPIN}"
+    if mountpoint -q /boot; then
+        rm -f "${ESP_ADDON}"
+        sync -f /boot
+    fi
+    log "the graphics card goes back to Asima OS at the next start"
+    ;;
+bind)
+    [[ -f ${CONF} ]] || exit 0
+    slot=$(sed -n 's/^GPU=//p' "${CONF}")
+    [[ ${slot} =~ ^[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}$ ]] || { log "no card in ${CONF}"; exit 0; }
+    # Without the IOMMU the card can't go to a VM: leave it to Asima OS.
+    [[ -n $(ls /sys/kernel/iommu_groups 2>/dev/null) ]] || { log "the IOMMU is off: ${slot} stays with Asima OS"; exit 0; }
+    modprobe vfio-pci
+    for dev in /sys/bus/pci/devices/"${slot}".*; do
+        [[ -e ${dev} ]] || continue
+        a=${dev##*/}
+        [[ $(cat "${dev}/boot_vga" 2>/dev/null) == 1 ]] && { log "${a} shows the screen: not taken"; exit 0; }
+        echo vfio-pci > "${dev}/driver_override"
+        if [[ -e ${dev}/driver ]]; then
+            drv=$(basename "$(readlink -f "${dev}/driver")")
+            [[ ${drv} == vfio-pci ]] && continue
+            echo "${a}" > "${dev}/driver/unbind"
+        fi
+        echo "${a}" > /sys/bus/pci/drivers_probe
+        log "${a} is ready for virtual machines (vfio-pci)"
+    done
+    ;;
+*)
+    echo "usage: asimaos-passthrough on ADDRESS | off | bind" >&2
+    exit 2
+    ;;
+esac

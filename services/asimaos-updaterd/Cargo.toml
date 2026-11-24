@@ -1,0 +1,14 @@
+[package]
+name = "asimaos-updaterd"
+description = "Asima Updater service: update files and the versions in the start menu (io.github.asimaos.Updater1)"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+asimaos-svc = { path = "../asimaos-svc" }
+asimaos-update = { path = "../asimaos-update" }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+zbus.workspace = true

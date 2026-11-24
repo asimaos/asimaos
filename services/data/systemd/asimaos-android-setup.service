@@ -1,0 +1,12 @@
+[Unit]
+Description=Asima OS: set up Android apps (download Android for Waydroid)
+Documentation=file:///usr/share/doc/asimaos/DESIGN.md
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=!/var/lib/waydroid/waydroid.cfg
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/asimaos/asimaos-android setup
+TimeoutStartSec=infinity
+Nice=10

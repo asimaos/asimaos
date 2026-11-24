@@ -1,0 +1,19 @@
+[package]
+name = "asimaos-faced"
+description = "Asima OS face sign-in and biometric approval service: camera, YuNet + SFace, fprintd (io.github.asimaos.Face1)"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+asimaos-svc = { path = "../asimaos-svc" }
+anyhow.workspace = true
+futures-util.workspace = true
+libc.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+zbus.workspace = true
+tract-onnx = "0.21"
+
+[dev-dependencies]
+image = { version = "0.25", default-features = false, features = ["jpeg"] }

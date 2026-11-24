@@ -1,0 +1,13 @@
+[package]
+name = "asimaos-gamingd"
+description = "Asima Gaming service: handheld power limit, gaming CPU scheduler (io.github.asimaos.Gaming1)"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+asimaos-svc = { path = "../asimaos-svc" }
+anyhow.workspace = true
+libc = "0.2"
+serde_json.workspace = true
+tokio.workspace = true
+zbus.workspace = true

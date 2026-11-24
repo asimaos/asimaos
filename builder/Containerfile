@@ -1,0 +1,16 @@
+# Asima Builder container: rootless Arch build environment pinned to the archive snapshot.
+FROM docker.io/archlinux/archlinux:base
+
+COPY pacman.conf /etc/pacman.conf
+
+# -Syuu syncs every package to the pinned snapshot (allows downgrades).
+RUN pacman -Syuu --noconfirm \
+        arch-install-scripts \
+        erofs-utils \
+        cryptsetup \
+        btrfs-progs \
+        dosfstools \
+        mtools \
+        systemd-ukify \
+        libisoburn \
+    && pacman -Scc --noconfirm

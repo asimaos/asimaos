@@ -1,0 +1,17 @@
+# Asima OS: caches live in RAM and start clean at every start, so an old cache can't cause
+# trouble after an update, and the SSD is written less. AppArmor's compiled policy is the one
+# cache kept on disk (var-cache-apparmor.mount), so starting stays fast.
+[Unit]
+Description=Caches in RAM
+DefaultDependencies=no
+Conflicts=umount.target
+Before=local-fs.target umount.target
+
+[Mount]
+What=tmpfs
+Where=/var/cache
+Type=tmpfs
+Options=mode=0755,nosuid,nodev,size=10%,nr_inodes=400k
+
+[Install]
+WantedBy=local-fs.target
