@@ -205,15 +205,11 @@ DPage {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.preferredWidth: 1
-            title: qsTr("Apps from Flathub")
-            subtitle: qsTr("Asima App Center installs, updates and tidies every kind of app; the system itself updates with Asima Updater.")
+            title: qsTr("Flatpak apps")
+            subtitle: qsTr("Asima App Center installs, updates and tidies every kind of app; Asima OS itself updates with Asima Updater.")
             icon: "package"
             tone: "ok"
             spacing: 0
-            actions: [
-                DButton { text: qsTr("Asima App Center"); variant: "ghost"; iconName: "applications-all"; onClicked: Backend.openApp("asimaos-appcenter --page installed") },
-                DButton { text: qsTr("Asima Updater"); variant: "ghost"; iconName: "download"; onClicked: Backend.openApp("asimaos-updater") }
-            ]
 
             ListRow {
                 Layout.fillWidth: true
@@ -227,6 +223,12 @@ DPage {
                 title: qsTr("On disk")
                 value: Theme.bytes(Backend.flatpak.size || 0)
                 separator: false
+            }
+            RowLayout {
+                Layout.topMargin: 12
+                spacing: 8
+                DButton { text: qsTr("Asima App Center"); variant: "secondary"; iconName: "applications-all-symbolic"; onClicked: Backend.openApp("asimaos-appcenter --page installed") }
+                DButton { text: qsTr("Asima Updater"); variant: "ghost"; iconName: "download"; onClicked: Backend.openApp("asimaos-updater") }
             }
         }
 

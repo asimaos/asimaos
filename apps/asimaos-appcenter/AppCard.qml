@@ -25,7 +25,8 @@ Rectangle {
             implicitWidth: 48
             implicitHeight: 48
             Image {
-                visible: card.remoteIcon
+                id: remote
+                visible: card.remoteIcon && status !== Image.Error
                 anchors.fill: parent
                 source: card.remoteIcon ? card.app.icon : ""
                 sourceSize.width: 96
@@ -33,11 +34,16 @@ Rectangle {
                 fillMode: Image.PreserveAspectFit
                 asynchronous: true
             }
-            Icon {
-                visible: !card.remoteIcon
+            // The app's own icon in its colours (a generic one when the theme hasn't got it, or the
+            // catalogue's picture can't be fetched).
+            Image {
+                visible: !remote.visible
                 anchors.centerIn: parent
-                name: card.app.icon || "application-x-executable"
-                size: 44
+                width: 44
+                height: 44
+                sourceSize: Qt.size(88, 88)
+                source: "image://dicon/" + (card.remoteIcon || !card.app.icon ? "application-x-executable" : card.app.icon)
+                fillMode: Image.PreserveAspectFit
             }
         }
         UiText { text: card.app.name || card.app.id || ""; font.weight: Font.DemiBold; Layout.fillWidth: true; elide: Text.ElideRight }

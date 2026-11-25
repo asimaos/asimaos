@@ -14,7 +14,7 @@ DPage {
         Layout.fillWidth: true
         title: page.f.name || ""
         subtitle: page.f.detail || ""
-        icon: page.f.kind === "android" ? "smartphone" : page.f.kind === "windows" ? "wine" : "package-x-generic"
+        icon: (Backend.kinds.find(k => k.id === page.f.kind) || {}).icon || "package-x-generic"
         tone: page.f.ok ? "accent" : "warn"
         ListRow {
             Layout.fillWidth: true

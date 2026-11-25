@@ -134,7 +134,8 @@ void ManagerEngine::setDemoDevice(const QString &kind)
     m_battery = d.battery;
     m_thermals = d.thermals;
     m_power = d.power;
-    m_display = item({{"rgbLights", 0}, {"kbdAvailable", true}, {"kbdLevel", 1}, {"kbdMax", 2}});
+    m_display = item({{"rgbLights", 0}, {"kbdAvailable", true}, {"kbdLevel", 1}, {"kbdMax", 2},
+                      {"monitors", QVariantList{item({{"name", "display0"}, {"label", "Built-in Screen"}, {"internal", true}, {"brightness", 60}, {"max", 100}})}}});
     if (kind == QLatin1String("ideapad")) {
         m_device.insert("model", QStringLiteral("Lenovo IdeaPad Gaming 3"));
         m_battery.insert("limitFixed", true);

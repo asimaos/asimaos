@@ -20,7 +20,7 @@ B.ApplicationWindow {
     property string page: startPage
 
     readonly property var pages: [
-        { key: "store", label: qsTr("Apps"), icon: "applications-all" },
+        { key: "store", label: qsTr("Apps"), icon: "applications-all-symbolic" },
         { key: "installed", label: qsTr("Installed"), icon: "view-list-details" },
         { key: "updates", label: qsTr("Updates"), icon: "update-none",
           badge: (Backend.updates.total || 0) > 0 ? String(Backend.updates.total) : "", badgeTone: "accent" }

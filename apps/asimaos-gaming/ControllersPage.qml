@@ -221,7 +221,7 @@ DPage {
             icon: "dialog-ok-apply"
             tone: "ok"
             spacing: 0
-            ListRow { Layout.fillWidth: true; title: qsTr("Xbox"); subtitle: qsTr("USB and Bluetooth built in · Xbox Wireless adapter coming later"); value: qsTr("Ready"); tone: "ok" }
+            ListRow { Layout.fillWidth: true; title: qsTr("Xbox"); subtitle: qsTr("USB, Bluetooth and the Xbox Wireless Adapter (its firmware from Microsoft, on request)"); value: qsTr("Ready"); tone: "ok" }
             ListRow { Layout.fillWidth: true; title: qsTr("PlayStation (DualSense, DualShock 4)"); subtitle: qsTr("Light bar, rumble, touchpad and motion"); value: qsTr("Ready"); tone: "ok" }
             ListRow { Layout.fillWidth: true; title: qsTr("Nintendo Switch Pro, Joy-Con"); subtitle: qsTr("USB and Bluetooth"); value: qsTr("Ready"); tone: "ok" }
             ListRow { Layout.fillWidth: true; title: qsTr("8BitDo and others"); subtitle: qsTr("Firmware updates through Discover"); value: qsTr("Ready"); tone: "ok"; separator: false }

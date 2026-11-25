@@ -175,14 +175,14 @@ QVariantList AppCenterEngine::purposes() const
 {
     return {
         item({{"id", "all"}, {"title", tr("Discover")}, {"icon", "starred"}}),
-        item({{"id", "games"}, {"title", tr("Games")}, {"icon", "applications-games"}}),
-        item({{"id", "graphics"}, {"title", tr("Graphics & photos")}, {"icon", "applications-graphics"}}),
-        item({{"id", "media"}, {"title", tr("Audio & video")}, {"icon", "applications-multimedia"}}),
-        item({{"id", "office"}, {"title", tr("Office")}, {"icon", "applications-office"}}),
-        item({{"id", "internet"}, {"title", tr("Internet & chat")}, {"icon", "applications-internet"}}),
-        item({{"id", "development"}, {"title", tr("Development")}, {"icon", "applications-development"}}),
-        item({{"id", "education"}, {"title", tr("Education & science")}, {"icon", "applications-education"}}),
-        item({{"id", "system"}, {"title", tr("System & tools")}, {"icon", "applications-utilities"}}),
+        item({{"id", "games"}, {"title", tr("Games")}, {"icon", "applications-games-symbolic"}}),
+        item({{"id", "graphics"}, {"title", tr("Graphics & photos")}, {"icon", "applications-graphics-symbolic"}}),
+        item({{"id", "media"}, {"title", tr("Audio & video")}, {"icon", "applications-multimedia-symbolic"}}),
+        item({{"id", "office"}, {"title", tr("Office")}, {"icon", "applications-office-symbolic"}}),
+        item({{"id", "internet"}, {"title", tr("Internet & chat")}, {"icon", "applications-internet-symbolic"}}),
+        item({{"id", "development"}, {"title", tr("Development")}, {"icon", "applications-development-symbolic"}}),
+        item({{"id", "education"}, {"title", tr("Education & science")}, {"icon", "applications-education-symbolic"}}),
+        item({{"id", "system"}, {"title", tr("System & tools")}, {"icon", "applications-utilities-symbolic"}}),
     };
 }
 
@@ -209,9 +209,9 @@ QVariantMap AppCenterEngine::rowFor(const QString &kind) const
         {QStringLiteral("conda"), {QT_TR_NOOP("Conda"), QT_TR_NOOP("Environments from conda-forge, for data science")}},
     };
     static const QHash<QString, QString> icons{
-        {QStringLiteral("flatpak"), QStringLiteral("flatpak-discover")}, {QStringLiteral("snap"), QStringLiteral("snap")},
-        {QStringLiteral("appimage"), QStringLiteral("application-x-executable")}, {QStringLiteral("android"), QStringLiteral("smartphone")},
-        {QStringLiteral("windows"), QStringLiteral("wine")}, {QStringLiteral("containers"), QStringLiteral("virtual-desktops")},
+        {QStringLiteral("flatpak"), QStringLiteral("application-vnd.flatpak.ref")}, {QStringLiteral("snap"), QStringLiteral("application-vnd.snap")},
+        {QStringLiteral("appimage"), QStringLiteral("application-x-iso9660-appimage")}, {QStringLiteral("android"), QStringLiteral("smartphone")},
+        {QStringLiteral("windows"), QStringLiteral("wine-symbolic")}, {QStringLiteral("containers"), QStringLiteral("virtual-desktops")},
         {QStringLiteral("nix"), QStringLiteral("package")}, {QStringLiteral("homebrew"), QStringLiteral("package-x-generic")},
         {QStringLiteral("python"), QStringLiteral("text-x-python")}, {QStringLiteral("node"), QStringLiteral("application-javascript")},
         {QStringLiteral("rust"), QStringLiteral("text-x-rust")}, {QStringLiteral("go"), QStringLiteral("text-x-go")},
@@ -271,7 +271,7 @@ AppCenterEngine::AppCenterEngine(bool demo, bool window, QObject *parent)
 {
     m_updates = item({{"checking", false}, {"total", 0}, {"kinds", QVariantList{}}});
     if (m_demo) {
-        loadDemo();
+        loadRows();   // the open tab's sample rows; loadDemo() fills the rest with them
         return;
     }
     m_snapd = new SnapdClient(this);
@@ -1871,20 +1871,20 @@ void AppCenterEngine::loadDemo()
     };
     const QHash<QString, QVariantList> sample{
         {QStringLiteral("flatpak"), {demo("flatpak", "org.mozilla.firefox", "Firefox", "Fast, private and safe web browser", "internet-web-browser"),
-                                     demo("flatpak", "com.valvesoftware.Steam", "Steam", "Launcher for the Steam software distribution service", "steam"),
-                                     demo("flatpak", "org.gimp.GIMP", "GIMP", "Create images and edit photographs", "gimp"),
-                                     demo("flatpak", "org.libreoffice.LibreOffice", "LibreOffice", "The LibreOffice productivity suite", "libreoffice-main"),
-                                     demo("flatpak", "com.obsproject.Studio", "OBS Studio", "Live stream and record videos", "com.obsproject.Studio"),
-                                     demo("flatpak", "org.kde.krita", "Krita", "Digital painting, creative freedom", "krita")}},
-        {QStringLiteral("snap"), {demo("snap", "spotify", "Spotify", "Music for everyone", "spotify-client"),
-                                  demo("snap", "code", "Visual Studio Code", "Code editing. Redefined.", "visual-studio-code"),
-                                  demo("snap", "postman", "Postman", "API development environment", "applications-development")}},
-        {QStringLiteral("appimage"), {demo("appimage", "Krita", "Krita", "Digital painting", "krita"),
+                                     demo("flatpak", "com.valvesoftware.Steam", "Steam", "Launcher for the Steam software distribution service", "applications-games"),
+                                     demo("flatpak", "org.gimp.GIMP", "GIMP", "Create images and edit photographs", "applications-graphics"),
+                                     demo("flatpak", "org.libreoffice.LibreOffice", "LibreOffice", "The LibreOffice productivity suite", "applications-office"),
+                                     demo("flatpak", "org.kde.kdenlive", "Kdenlive", "Video editing for everyone", "kdenlive"),
+                                     demo("flatpak", "org.kde.digikam", "digiKam", "Manage, edit and share your photos", "digikam")}},
+        {QStringLiteral("snap"), {demo("snap", "spotify", "Spotify", "Music for everyone", "applications-multimedia"),
+                                  demo("snap", "code", "Visual Studio Code", "Code editing. Redefined.", "applications-development"),
+                                  demo("snap", "postman", "Postman", "API development environment", "applications-internet")}},
+        {QStringLiteral("appimage"), {demo("appimage", "Krita", "Krita", "Digital painting", "applications-graphics"),
                                       demo("appimage", "Kdenlive", "Kdenlive", "Video editor", "kdenlive"),
                                       demo("appimage", "Joplin", "Joplin", "Notes and to-dos", "accessories-text-editor")}},
         {QStringLiteral("android"), {demo("android", "org.fdroid.fdroid", "F-Droid", "The free Android app store", "smartphone"),
                                      demo("android", "org.mozilla.fennec_fdroid", "Fennec", "Browse the web", "internet-web-browser")}},
-        {QStringLiteral("windows"), {demo("windows", "Battle.net", "Battle.net", "Blizzard's games, in Bottles", "wine")}},
+        {QStringLiteral("windows"), {demo("windows", "Battle.net", "Battle.net", "Blizzard's games, in Bottles", "applications-games")}},
         {QStringLiteral("containers"), {demo("containers", "ubuntu-dev", "ubuntu-dev", "Distrobox · Ubuntu 24.04", "virtual-desktops")}},
         {QStringLiteral("nix"), {demo("nix", "neovim", "neovim", "Vim-fork focused on extensibility", "utilities-terminal"),
                                  demo("nix", "ripgrep", "ripgrep", "Fast line-oriented search", "utilities-terminal")}},
@@ -1921,9 +1921,14 @@ void AppCenterEngine::loadDemo()
                                                        {"names", QStringList{"Firefox", "Steam", "Mesa", "KDE Frameworks"}}}),
                                                  item({{"kind", "snap"}, {"title", tr("Snap")}, {"count", 1}, {"names", QStringList{"Spotify"}}})}}});
         m_groups = {item({{"id", "gaming"}, {"title", tr("Gaming")}, {"summary", tr("Steam, Heroic, Lutris and the tools around them")},
-                          {"apps", QVariantList{item({{"kind", "flatpak"}, {"id", "com.valvesoftware.Steam"}, {"name", "Steam"}})}}}),
+                          {"apps", QVariantList{item({{"kind", "flatpak"}, {"id", "com.valvesoftware.Steam"}, {"name", "Steam"}}),
+                                                item({{"kind", "flatpak"}, {"id", "com.heroicgameslauncher.hgl"}, {"name", "Heroic"}}),
+                                                item({{"kind", "flatpak"}, {"id", "net.lutris.Lutris"}, {"name", "Lutris"}}),
+                                                item({{"kind", "flatpak"}, {"id", "org.freedesktop.Platform.VulkanLayer.MangoHud"}, {"name", "MangoHud"}})}}}),
                     item({{"id", "office"}, {"title", tr("Office")}, {"summary", tr("Documents, mail and notes")},
-                          {"apps", QVariantList{item({{"kind", "flatpak"}, {"id", "org.libreoffice.LibreOffice"}, {"name", "LibreOffice"}})}}})};
+                          {"apps", QVariantList{item({{"kind", "flatpak"}, {"id", "org.libreoffice.LibreOffice"}, {"name", "LibreOffice"}}),
+                                                item({{"kind", "flatpak"}, {"id", "org.mozilla.Thunderbird"}, {"name", "Thunderbird"}}),
+                                                item({{"kind", "flatpak"}, {"id", "net.cozic.joplin_desktop"}, {"name", "Joplin"}})}}})};
     }
     for (QVariant &r : m_rows) {
         QVariantMap m = r.toMap();
@@ -1947,8 +1952,13 @@ void AppCenterEngine::loadDemo()
 
 void AppCenterEngine::setDemoState(const QString &state)
 {
-    if (state == QLatin1String("file"))
+    if (state == QLatin1String("file")) {
         openFile(QStringLiteral("/home/asha/Downloads/Obsidian-1.9.12.AppImage"));
+        m_file.insert(QStringLiteral("size"), 128.4e6);   // a sample: the file isn't really there
+        m_file.insert(QStringLiteral("ok"), true);
+        m_file.insert(QStringLiteral("problem"), QString());
+        emit fileChanged();
+    }
     if (state == QLatin1String("search"))
         search(QStringLiteral("o"));
     if (state == QLatin1String("busy")) {
