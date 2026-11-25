@@ -145,6 +145,8 @@ polkit.addRule(function (action, subject) {
 });
 EOF
     cp /sysroot/usr/share/asimaos/live/io.github.asimaos.Installer.desktop "${up}/xdg/autostart/"
+    # libvirt's factory definitions (D53: on installed systems they live in @vm).
+    mkdir -p "${up}/libvirt" && cp -a /sysroot/usr/share/asimaos/libvirt-definitions/. "${up}/libvirt/" 2>/dev/null || true
 
     mkdir -p "${home}/Desktop" "${home}/.config" "${home}/.local/share/applications"
     [[ -d ${f}/skel ]] && cp -a "${f}/skel/." "${home}/"
@@ -376,6 +378,25 @@ else
     mkdir -p /run/asimaos-snapshots/home /sysroot/home/.snapshots
     mount -o bind,ro /run/asimaos-snapshots/home /sysroot/home/.snapshots \
         || log "the snapshots of /home could not be shown at /home/.snapshots"
+
+    # Virtual machines' settings live in @vm next to their disks (D53): libvirt's definitions of
+    # the system's VMs, networks, storage pools and secrets are bound over their empty folders in
+    # /etc/libvirt, so they are never part of /etc's changes or of Reset settings. The first start
+    # (and the one after a factory reset) copies libvirt's factory ones from /usr.
+    vm_definitions() {
+        local d defs=/sysroot/var/lib/libvirt/definitions factory=/sysroot/usr/share/asimaos/libvirt-definitions
+        [[ -d ${factory} ]] || return 0
+        for d in qemu storage secrets; do
+            if [[ ! -d ${defs}/${d} ]]; then
+                mkdir -p "${defs}" && rm -rf "${defs}/${d}.new" \
+                    && cp -a "${factory}/${d}" "${defs}/${d}.new" && mv "${defs}/${d}.new" "${defs}/${d}" \
+                    || { log "libvirt's ${d} definitions could not be made in @vm"; continue; }
+            fi
+            [[ -d /sysroot/etc/libvirt/${d} ]] && mount -o bind "${defs}/${d}" "/sysroot/etc/libvirt/${d}" \
+                || log "libvirt's ${d} definitions in @vm could not be bound to /etc/libvirt/${d}"
+        done
+    }
+    vm_definitions
 
     # The 2 GB emergency reserve (docs/architecture.md §5): made with fallocate once the pool has room
     # for it (the first start), released here when the disk is so full that the system could not

@@ -65,7 +65,7 @@ build and the installer.
 | `@reserve` | `/run/initramfs/reserve` | 2 GB emergency ballast file, never snapshotted |
 | `@var` | `/var` | Persistent system state; `/var/tmp` stays on disk |
 | `@containers` | `/var/lib/containers` | Podman / Distrobox |
-| `@vm` | `/var/lib/libvirt` | VM disks and libvirt definitions |
+| `@vm` | `/var/lib/libvirt` | The system's VM disks and their definitions (D53): `definitions/{qemu,storage,secrets}`, bound over the empty folders in `/etc/libvirt` at every start, so Reset settings leaves them alone |
 | `@flatpak` | `/var/lib/flatpak` | System-wide Flatpaks |
 | `@home` | `/home` | User files |
 | `@root` | `/root` | Admin home |

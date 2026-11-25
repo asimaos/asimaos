@@ -128,6 +128,21 @@ with_root_mounts chroot "${ROOT}" systemctl enable \
     virtstoraged.socket virtstoraged-ro.socket virtnodedevd.socket virtnodedevd-ro.socket \
     virtsecretd.socket virtsecretd-ro.socket virtlogd.socket virtlockd.socket
 with_root_mounts chroot "${ROOT}" systemctl --global enable podman.socket asimaos-desktop-check.service
+# The system's virtual machines, networks, storage pools and secrets (qemu:///system) are defined
+# in @vm next to their disks (D53): libvirt's factory definitions, as the package ships them, move
+# to /usr, and the early mount binds /var/lib/libvirt/definitions/<folder> over the empty folders
+# left in /etc/libvirt, so Reset settings never holds them.
+DEFS="${ROOT}/usr/share/asimaos/libvirt-definitions"
+rm -rf "${DEFS}" && mkdir -p "${DEFS}"
+for d in qemu storage secrets; do
+    if [[ -d ${ROOT}/etc/libvirt/${d} ]]; then
+        cp -a "${ROOT}/etc/libvirt/${d}" "${DEFS}/${d}"
+        find "${ROOT}/etc/libvirt/${d}" -mindepth 1 -delete
+    else
+        install -d -m 0700 "${DEFS}/${d}" "${ROOT}/etc/libvirt/${d}"
+    fi
+done
+chmod 0700 "${DEFS}/secrets" "${ROOT}/etc/libvirt/secrets"
 # Guest tools (D22): each starts only inside its own kind of virtual machine. SPICE (clipboard,
 # screen size, shared folders) and the QEMU guest agent start when QEMU offers their channel.
 with_root_mounts chroot "${ROOT}" systemctl enable \
