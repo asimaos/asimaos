@@ -344,7 +344,10 @@ switches to the installed one: systemd runs it from RAM, with `cryptsetup`, `ver
 (simpledrm, Qt `linuxfb`, software rendering), so no graphics driver is needed; GPU drivers,
 networking, firmware, Mesa and LLVM are left out, and so are the drivers a PC's rescue never needs
 (sensors, Bluetooth, server storage, network filesystems), the other Qt styles and screen backends,
-and the tools that come with its libraries (about 415 MB in RAM). A root shell is on
+and the tools that come with its libraries. ICU's data keeps only what an English app that shows
+text needs: the build filters it with ICU's own tools (`icupkg`, `genccode`) and links the library
+again under its own name, without the other languages, transliteration, character set converters
+and the large line-break dictionaries (D55). A root shell is on
 tty2 and the serial console; the disk still needs its passphrase or recovery key. It reads the
 start menu with `aosupd boot list --plain`, the same code as Asima Updater. What it can do:
 [`apps/DESIGN.md`](../apps/DESIGN.md#asima-rescue).

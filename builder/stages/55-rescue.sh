@@ -98,6 +98,45 @@ with_root_mounts chroot "${RROOT}" systemctl mask systemd-firstboot.service syst
     systemd-userdbd.socket systemd-networkd.service systemd-resolved.service systemd-timesyncd.service \
     systemd-remount-fs.service tmp.mount >/dev/null 2>&1 || true
 
+step "Rescue system: ICU's data, only what Rescue needs"
+# Qt needs ICU, whose data library holds 32 MB: character properties and normalisation, line
+# breaking, and every language's names, calendars, sorting and character sets. Rescue speaks
+# English and only shows text, so the other languages' data, transliteration, the character set
+# converters, the character names and the large line-break dictionaries (Chinese, Japanese, Thai,
+# Lao, Khmer, Burmese: those lines then break at any character) go. The library is made again
+# under its own name from the filtered data, with ICU's own tools (icupkg, genccode) and the
+# linker, which only this throw-away container gets.
+pacman -S --needed --noconfirm --cachedir /var/cache/pacman/pkg binutils >/dev/null
+ICU="${BUILD}/rescue-icu"
+rm -rf "${ICU}" "${RROOT}/tmp/icu" && mkdir -p "${ICU}" "${RROOT}/tmp/icu"
+lib=$(readlink -f "${RROOT}/usr/lib/libicudata.so")
+soname=$(objdump -p "${lib}" | awk '$1 == "SONAME" { print $2 }')
+read -r addr size sym < <(nm -D --defined-only -S "${lib}" | awk '$4 ~ /^icudt[0-9]+_dat$/ { print $1, $2, $4; exit }') || true
+[[ -n ${sym:-} && -n ${soname} ]] || die "ICU's data was not found in ${lib##*/}"
+pkg=${sym%_dat}l                                                    # icudt77l: little-endian data
+read -r vma < <(objdump -h "${lib}" | awk '$2 == ".rodata" { print $4 }') || true
+[[ -n ${vma:-} ]] || die "ICU's data library has no .rodata section"
+objcopy -O binary --only-section=.rodata "${lib}" "${ICU}/rodata.bin"
+dd if="${ICU}/rodata.bin" of="${RROOT}/tmp/icu/${pkg}.dat" bs=1M iflag=skip_bytes,count_bytes status=none \
+    skip=$(( 16#${addr} - 16#${vma} )) count=$(( 16#${size} ))
+chroot "${RROOT}" icupkg -l "/tmp/icu/${pkg}.dat" > "${ICU}/items.txt"
+sed -E 's#^icudt[0-9]+[lb]/##' "${ICU}/items.txt" \
+    | grep -E -e '^translit/' -e '\.cnv$' -e '^unames\.icu$' -e '^brkitr/[^/]+\.dict$' \
+              -e '^((brkitr|coll|curr|lang|rbnf|region|unit|zone)/)?[a-z]{2,3}(_[A-Za-z0-9]+)*\.res$' \
+    | grep -v -E '(^|/)(res_index|root|en|en_001|en_150|en_GB|en_US|en_US_POSIX)\.res$' > "${RROOT}/tmp/icu/remove.txt" || true
+chroot "${RROOT}" icupkg -r /tmp/icu/remove.txt "/tmp/icu/${pkg}.dat" "/tmp/icu/${pkg}-rescue.dat"
+chroot "${RROOT}" genccode -o -e "${sym%_dat}" -d /tmp/icu "/tmp/icu/${pkg}-rescue.dat"
+obj=$(find "${RROOT}/tmp/icu" -name '*.o' -print -quit)
+[[ -n ${obj} ]] || die "genccode made no object file from ICU's data"
+ld -shared -z noexecstack -soname "${soname}" -o "${ICU}/${lib##*/}" "${obj}"
+nm -D --defined-only "${ICU}/${lib##*/}" | grep " ${sym}\$" >/dev/null || die "the filtered ICU library lacks ${sym}"
+echo "  ICU data: $(( $(stat -c %s "${lib}") / 1048576 )) MB → $(( $(stat -c %s "${ICU}/${lib##*/}") / 1048576 )) MB," \
+     "$(wc -l < "${RROOT}/tmp/icu/remove.txt") of $(wc -l < "${ICU}/items.txt") items left out"
+install -m 0644 "${ICU}/${lib##*/}" "${lib}"
+rm -rf "${RROOT}/tmp/icu" "${ICU}"
+# ICU starts with the smaller data (its own check: "ICU Initialization returned: U_ZERO_ERROR").
+chroot "${RROOT}" icuinfo 2>&1 | grep 'U_ZERO_ERROR' >/dev/null || die "ICU does not start with the filtered data"
+
 step "Rescue system: leaving out what it never uses"
 rm -rf "${RROOT}"/usr/share/{doc,man,info,gtk-doc,help} "${RROOT}"/usr/include "${RROOT}"/var/cache/pacman \
        "${RROOT}"/var/lib/pacman/sync "${RROOT}"/usr/lib/firmware "${RROOT}"/boot
@@ -143,10 +182,10 @@ rm -rf "${M}"/drivers/{hwmon,accel,regulator,power,bluetooth,firewire,isdn,atm,w
        "${M}"/drivers/{memstick,pcmcia,parport,counter,fpga,cxl,ntb,target,edac,ptp,pps} \
        "${M}"/drivers/scsi/{qla2xxx,qla4xxx,lpfc,bfa,be2iscsi,bnx2fc,bnx2i,cxgbi,fcoe,fnic,csiostor,qedf,qedi,elx,libfc} \
        "${M}"/fs/{nfs,nfsd,nfs_common,lockd,smb,ceph,afs,9p,orangefs,coda,ocfs2,gfs2,dlm,netfs,cachefiles,fscache} 2>/dev/null || true
-# Command-line tools that come with libraries Rescue needs (SQLite, Kerberos, SASL, LMDB, GDBM, libcap,
+# Command-line tools that come with libraries Rescue needs (SQLite, Kerberos, SASL, LMDB, GDBM, libcap, ICU,
 # libwacom); systemd's network, container, home-directory and remote-journal services.
 # (pacman lists the files with the root in front; a package without programs lists none.)
-for pkg in sqlite krb5 libsasl lmdb gdbm libcap libwacom; do
+for pkg in sqlite krb5 libsasl lmdb gdbm libcap libwacom icu; do
     { pacman --root "${RROOT}" -Qlq "${pkg}" 2>/dev/null || true; } \
         | { grep -E "^${RROOT}/usr/bin/[^/]+\$" || true; } | xargs -r rm -f
 done
