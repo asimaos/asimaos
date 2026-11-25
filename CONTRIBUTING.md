@@ -13,7 +13,9 @@ one signed image, updates are one file, and the person at the computer never has
 - Translations are welcome: `apps/i18n/asimaos_<language>.ts`, opened with Qt Linguist.
 - This repository is published from the maintainer's private working repository,
   so a pull request isn't merged here directly: its change is applied there, keeping you as its
-  author, and appears here with the next push; the pull request is then closed with a note.
+  author, and appears here with the next publish; the pull request is then closed with a note.
+- Contributions are under the [GPL-3.0-or-later](LICENSE), like the rest. No sign-off line or extra
+  agreement is needed.
 
 ## Building and testing
 
@@ -42,6 +44,8 @@ Run one container at a time. A change to an app is checked from its screenshots,
   `docs/architecture.md`, the apps and their services in `apps/DESIGN.md`, tests and their results
   in `docs/status.md`, plans in `docs/roadmap.md`, what changed in the CHANGELOG. Other documents
   link there instead of repeating it.
+
+- **Credit where it's due.** A project Asima OS starts to use goes into [`CREDITS.md`](CREDITS.md).
 
 ## Never
 

@@ -1,0 +1,21 @@
+name: An idea
+description: Something Asima OS or one of its apps could do.
+labels: [idea]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. Please look at docs/roadmap.md first: it may be planned already. Changing one of
+        the decisions in docs/decisions.md is a conversation first, so say why it would help.
+  - type: textarea
+    id: need
+    attributes:
+      label: What you'd like to do
+      description: What you are trying to do, and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How it could work
+      description: Which app or part it belongs to, and what it would look like.

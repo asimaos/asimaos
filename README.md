@@ -117,12 +117,26 @@ repository.
 | [Contributing](CONTRIBUTING.md) | How to build, test and send changes |
 | [Credits](CREDITS.md) | The projects Asima OS is built from, and the help it had |
 
+## Out of scope
+
+- PCs other than 64-bit x86 with UEFI: no ARM, no 32-bit, no old BIOS start-up.
+- Sharing a disk with Windows or another system. Asima OS uses a whole disk; other systems stay on
+  other disks.
+- A Microsoft-signed shim of its own: Fedora's, which Microsoft signs, starts it with Secure Boot.
+- Installing system packages one by one. The system is one image updated as a whole; apps come
+  through Asima App Center.
+
 ## Related
 
 - [Asima Hub](https://github.com/asimaos/asimaos-hub): news, downloads, the USB stick and the OS's
   updates; a Flatpak, never part of the system.
 - [The website](https://asimaos.pages.dev/) ([source](https://github.com/asimaos/asimaos-website)): guides,
   downloads and news.
+
+## The name
+
+"Asima OS" and its mark stand for this project's own builds. You are welcome to fork it under the
+GPL; please give a changed version a name of its own.
 
 ## License
 

@@ -24,8 +24,8 @@ name on it if you like.
 Anything that weakens the update signatures or lets an update in that wasn't signed; the start-up
 chain (Secure Boot, the signed start-up image, dm-verity); disk encryption and TPM unlock; the
 Asima OS password dialog, fingerprint and face approval; a service that does root work without
-polkit's yes; Asima Hub's checks of its feed, downloads and USB stick; the build's handling of
-keys.
+polkit's yes; signed system extensions; Asima Hub's checks of its feed, downloads and USB stick;
+Asima App Center's checks of what it downloads; the build's handling of keys.
 
 ## Supported versions
 

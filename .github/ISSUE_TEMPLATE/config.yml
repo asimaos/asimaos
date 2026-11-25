@@ -3,3 +3,6 @@ contact_links:
   - name: A security problem
     url: https://github.com/asimaos/asimaos/security/advisories/new
     about: Report it privately, never in a public issue.
+  - name: A question
+    url: https://asimaos.pages.dev/community/
+    about: The guides and the questions on the website may already answer it.
