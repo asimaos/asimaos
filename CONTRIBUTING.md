@@ -53,6 +53,11 @@ Run one container at a time. A change to an app is checked from its screenshots,
   repository; a guard refuses them.
 - Add a package to the image without a reason that fits D28 (only what must run natively).
 
+## Conduct
+
+Everyone here follows the [code of conduct](CODE_OF_CONDUCT.md); [GOVERNANCE.md](GOVERNANCE.md)
+says who decides and how a version is released.
+
 ## Reporting a security problem
 
 Please don't open a public issue: [SECURITY.md](SECURITY.md) says how to report it privately.

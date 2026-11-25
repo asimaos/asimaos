@@ -116,6 +116,8 @@ repository.
 | [Changelog](CHANGELOG.md) | What each version changed |
 | [Contributing](CONTRIBUTING.md) | How to build, test and send changes |
 | [Credits](CREDITS.md) | The projects Asima OS is built from, and the help it had |
+| [How it is run](GOVERNANCE.md) | Who decides, how changes get in, how a version is released |
+| [Code of conduct](CODE_OF_CONDUCT.md) | How we treat each other here |
 
 ## Out of scope
 
