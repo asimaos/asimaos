@@ -80,7 +80,11 @@ build and the installer.
   folders are written without copy-on-write (`chattr +C`).
 - **`@slots` is a writable subvolume mounted read-only:** deduplication tools skip read-only
   subvolumes, and `FIDEDUPERANGE` fails on immutable files. Slots are written only inside
-  `asimaos-updaterd`'s private writable mount namespace.
+  `asimaos-updaterd`'s private writable mount namespace. There, right after an update, the new
+  version's system image shares every run of blocks (64 KiB or more) it has in common with the
+  running version's (D55): blocks are matched by a hash of their 4 KiB content, and the kernel
+  compares the bytes itself before it shares anything, so two versions take little more room than
+  one.
 - **No compression where it hurts:** the early mount marks `@slots` "no compression" (`chattr +m`)
   at every start, so the already compressed images updates write are stored as they are; the
   ballast is allocated with `fallocate`, uncompressed. Defragmentation is off for good (it would

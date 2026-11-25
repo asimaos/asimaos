@@ -9,6 +9,7 @@
 //!   asimaos-updaterd --finish-update      after a start marked good (asimaos-finish-update.service)
 //!   asimaos-updaterd --run-migrations     a new version's first start (asimaos-migrate.service)
 
+mod dedupe;
 mod status;
 mod update;
 
@@ -203,6 +204,15 @@ impl Updater {
                 let _ = Updater::job_progress(&emitter, &job_id, 0.95, "finish", "Keeping two versions").await;
                 boot::promote(&update::esp(&root), &version)?;
                 update::prune(&root, &running)?;
+                // The two versions share what they have in common (D55); a failure only saves less.
+                let _ = Updater::job_progress(&emitter, &job_id, 0.96, "finish", "Sharing what both versions have in common")
+                    .await;
+                let (slots, from, to) = (update::targets(&root).slots, running.clone(), version.clone());
+                match tokio::task::spawn_blocking(move || dedupe::share(&slots, &from, &to)).await {
+                    Ok(Ok(n)) if n > 0 => eprintln!("asimaos-updaterd: the two versions share {} MB", n >> 20),
+                    Ok(Err(e)) => eprintln!("asimaos-updaterd: the two versions share nothing: {e:#}"),
+                    _ => {}
+                }
                 refresh_tpm_policy(&root).await;
                 if root.is_system() {
                     let _ = asimaos_svc::cmd::run("mount", &["-o", "remount,ro,bind", update::SLOTS]).await;

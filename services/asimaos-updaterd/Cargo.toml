@@ -8,6 +8,7 @@ edition.workspace = true
 asimaos-svc = { path = "../asimaos-svc" }
 asimaos-update = { path = "../asimaos-update" }
 anyhow.workspace = true
+libc.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
