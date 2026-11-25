@@ -795,6 +795,8 @@ void InstallerEngine::setDemoState(const QString &fullState)
         setStep(QStringLiteral("write"), QStringLiteral("active"));
         m_install.insert("progress", 0.41);
         fail(tr("Writing the disk failed: the disk reported a read/write error. Your other disks were not touched."));
+    } else if (state == QLatin1String("repair")) {
+        demoRepairState(fullState.section(QLatin1Char('-'), 1));
     }
 }
 
@@ -832,11 +834,3 @@ void InstallerEngine::quit()
     QCoreApplication::quit();
 }
 
-void InstallerEngine::openRepair()
-{
-    const QString tool = QStringLiteral("/run/initramfs/live/asimaos/asimaos-repair");
-    if (m_demo || !QFileInfo::exists(tool)
-        || !QProcess::startDetached(QStringLiteral("konsole"), {QStringLiteral("--hide-menubar"), QStringLiteral("-e"),
-                                                               QStringLiteral("sudo"), tool, QStringLiteral("--interactive")}))
-        emit toast(tr("Repairing works from the Asima OS USB stick."), QStringLiteral("info"));
-}

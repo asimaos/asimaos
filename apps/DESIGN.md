@@ -274,6 +274,14 @@ Full-window guided flow (`WizardRail` + `WizardPage`), shipped only on the live 
 
 There is no first-start setup (D10): the installer creates the account; automatic unlock with the TPM and Secure Boot live in Asima Maintenance → Security.
 
+**Repair this computer** (D55: Welcome → "Repair an installed Asima OS") has its own three steps in the same window; the rail's footnote says "Nobody's files are touched."
+
+| Step | What the user does | Safety / honesty |
+| --- | --- | --- |
+| Disk | Picks the disk with Asima OS (`asimaos-repair --json` lists them); types its passphrase or recovery key when it is encrypted | `asimaos-repair DISK --probe` opens it and only reports what is there; a wrong passphrase is said here, before anything changes |
+| What to do | Sees the versions on the disk, the version the settings come from (D52) and the newest snapshot of the settings and accounts; the start-up is always put back; chooses whether to install this USB stick's version and whether to bring back the settings and accounts | Says whether the stick's version is newer, the same or older than the disk's (going back: settings a newer version changed may need Reset settings); when no version can start, installing the stick's version is needed; bringing back the settings keeps the current ones aside on the disk |
+| Repair | Watches the engine's steps; restarts | On failure: what happened, the engine's details and "Try again" (the passphrase is asked again) |
+
 ### Engine contract: `asimaos-install`
 
 `asimaos-install`, `asimaos-repair` and `asimaos-rescue-engine` (`engines/`) are three-line starters for one Rust program, `asimaos-engine` (`services/asimaos-engine`): `asimaos-engine install|repair|rescue …` with the options and events below. It lies next to them, on the USB stick (never in the installed `/usr`) and inside Asima Rescue; `ASIMAOS_ENGINE` points the starters at another copy (the end-to-end test).

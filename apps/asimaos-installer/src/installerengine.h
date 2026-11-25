@@ -31,6 +31,7 @@ class InstallerEngine : public QObject
     Q_PROPERTY(QVariantList disks READ disks NOTIFY disksChanged)
     Q_PROPERTY(QVariantMap defaults READ defaults CONSTANT)
     Q_PROPERTY(QVariantMap install READ install NOTIFY installChanged)
+    Q_PROPERTY(QVariantMap repair READ repair NOTIFY repairChanged)
 
 public:
     // The one instance main() makes; QML gets it as the Backend singleton (known at build time,
@@ -53,6 +54,7 @@ public:
     QVariantList disks() const { return m_disks; }
     QVariantMap defaults() const { return m_defaults; }
     QVariantMap install() const { return m_install; }
+    QVariantMap repair() const { return m_repair; }
 
     Q_INVOKABLE void refreshDisks();
     Q_INVOKABLE QString localTime(const QString &timezone) const;
@@ -66,15 +68,24 @@ public:
     Q_INVOKABLE bool saveText(const QUrl &file, const QString &text);
     Q_INVOKABLE void restart();
     Q_INVOKABLE void quit();
-    // "Repair this computer": a terminal with the repair tool's guided mode.
-    Q_INVOKABLE void openRepair();
+    // "Repair this computer" (D55), with screens, through the repair engine (asimaos-repair
+    // --json, installerrepair.cpp): the disks with Asima OS on them; what one holds, once its
+    // passphrase opened it (nothing changes); then the repair. `repair` has the phase ("disks",
+    // "probe", "run"), its state ("working", "ok", "error"), and what each phase found.
+    Q_INVOKABLE void findRepairDisks();
+    Q_INVOKABLE void probeRepair(const QString &disk, const QString &passphrase);
+    // options: disk, passphrase, installStick (this USB stick's version), restoreAccount (the
+    // settings and accounts from the newest snapshot).
+    Q_INVOKABLE void startRepair(const QVariantMap &options);
 
-    // Demo states for screenshots: installing, error, done; "-plain" installs without encryption.
+    // Demo states for screenshots: installing, error, done; "-plain" installs without encryption;
+    // repair-disks, repair-probed, repair-running, repair-done, repair-error.
     void setDemoState(const QString &state);
 
 signals:
     void disksChanged();
     void installChanged();
+    void repairChanged();
     void toast(const QString &message, const QString &tone);
 
 private:
@@ -87,6 +98,12 @@ private:
     void fail(const QString &message);
     void demoTick();
     QString findEngine() const;
+    void runRepair(const QString &phase, const QStringList &args, const QString &secret);
+    void repairEvent(const QByteArray &line);
+    void repairFailed(const QString &message);
+    void demoRepair(const QString &phase, const QVariantMap &options);
+    void demoRepairState(const QString &what);
+    QVariantList repairSteps(bool encrypted, bool stick, bool account) const;
 
     bool m_demo;
     bool m_dryRun;
@@ -99,4 +116,7 @@ private:
     double m_demoProgress = 0.0;
     bool m_encrypt = true;
     QSet<QString> m_systemNames;   // accounts and groups the system already has
+    QVariantMap m_repair;
+    QPointer<QProcess> m_repairProcess;
+    QByteArray m_repairBuffer;
 };

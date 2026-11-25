@@ -2,6 +2,7 @@ qt_add_executable(asimaos-installer
     src/main.cpp
     src/installerengine.h
     src/installerengine.cpp
+    src/installerrepair.cpp
 )
 
 # The QML type registration (generated) includes the singletons' headers from src/.
@@ -22,6 +23,9 @@ qt_add_qml_module(asimaos-installer
         SummaryPage.qml
         InstallPage.qml
         DonePage.qml
+        RepairDiskPage.qml
+        RepairChoicePage.qml
+        RepairRunPage.qml
 )
 
 target_link_libraries(asimaos-installer PRIVATE

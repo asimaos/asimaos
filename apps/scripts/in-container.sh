@@ -157,7 +157,9 @@ declare -A SHOTS=(
     [asimaos-gaming]="gaming controllers handheld@1320x1500 lighting gaming:laptop"
     [asimaos-dev]="containers machines machines:gpu nix android android:setup"
     [asimaos-installer]="welcome language disk account:filled encryption:filled encryption:filled-plain
-                        summary:filled install:installing install:error done:done done:done-filled-plain"
+                        summary:filled install:installing install:error done:done done:done-filled-plain
+                        repair-disk:repair-disks repair-choice:repair-probed repair-run:repair-running repair-run:repair-done
+                        repair-run:repair-error"
     [asimaos-rescue]="home unlock disk:unlocked restore:unlocked reinstall:unlocked keys reset:unlocked wipe
                      job:check-running=check-running job:check-done=check-done job:approve-key-done=key-done
                      job:factory-reset-done=reset-done job:wipe-running=wipe-running"

@@ -32,6 +32,8 @@ Options:
   --passphrase-stdin      read the passphrase or recovery key from standard input
   --restore-account       also bring back the settings and accounts from the newest snapshot
   --install-this-version  also install this USB stick's version, keeping files and settings
+  --probe                 only open the pool and report what is there (with --json: the versions,
+                          the version the settings come from, the newest snapshot); changes nothing
   --source DIR            the USB stick's Asima OS files (default /run/initramfs/live/asimaos)
   --interactive           no disk given: choose one from a list, and say what else to do
                           (the installer's \"Repair\" button opens this)";
@@ -45,6 +47,7 @@ struct Opts {
     pass_stdin: bool,
     restore_account: bool,
     install_stick: bool,
+    probe: bool,
     interactive: bool,
     source: PathBuf,
 }
@@ -92,6 +95,7 @@ pub fn main(args: &[String], out: &mut Out) -> Result<()> {
         pass_stdin: false,
         restore_account: false,
         install_stick: false,
+        probe: false,
         interactive: false,
         source: PathBuf::from("/run/initramfs/live/asimaos"),
     };
@@ -103,6 +107,7 @@ pub fn main(args: &[String], out: &mut Out) -> Result<()> {
             "--passphrase-stdin" => o.pass_stdin = true,
             "--restore-account" => o.restore_account = true,
             "--install-this-version" => o.install_stick = true,
+            "--probe" => o.probe = true,
             "--source" => {
                 o.source = PathBuf::from(it.next().ok_or_else(|| common::Stop("--source needs a folder".into()))?)
             }
@@ -152,6 +157,22 @@ pub fn main(args: &[String], out: &mut Out) -> Result<()> {
     }
     if o.target.is_empty() {
         let disks = common::asimaos_disks();
+        // The repair screens (the installer's "Repair" button): the disks, and this stick's version.
+        if out.json {
+            let list: Vec<serde_json::Value> = disks
+                .iter()
+                .map(|d| {
+                    json!({
+                        "path": d,
+                        "size": common::lsblk_value(d, "SIZE"),
+                        "model": common::lsblk_value(d, "MODEL"),
+                        "encrypted": common::part_of(d, "crypt_pool").is_some(),
+                    })
+                })
+                .collect();
+            out.event(json!({ "event": "disks", "disks": list, "stick": stick_version }));
+            return Ok(());
+        }
         if disks.is_empty() {
             println!("No disk with Asima OS was found.");
         }
@@ -216,6 +237,27 @@ pub fn main(args: &[String], out: &mut Out) -> Result<()> {
         } else {
             out.say(&format!("Asima OS {v} has no boot image to start it with; it is left out"));
         }
+    }
+    // What the repair screens show before anything changes: the versions on the disk, the version
+    // the settings come from (D52) and the newest snapshot of the settings and accounts.
+    if o.probe {
+        let mut all = versions.clone();
+        all.sort_by(|a, b| if common::older(a, b) { std::cmp::Ordering::Greater } else { std::cmp::Ordering::Less });
+        let mut snaps: Vec<String> = fs::read_dir(top.join("@snapshots/data"))
+            .map(|rd| rd.flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect())
+            .unwrap_or_default();
+        snaps.sort();
+        let settings = read_file(&top.join("@var/lib/asimaos/state-version")).trim().to_string();
+        out.event(json!({
+            "event": "probe",
+            "versions": all,
+            "stick": stick_version,
+            "settings": (!settings.is_empty()).then_some(settings),
+            "snapshot": snaps.last(),
+            "encrypted": encrypted,
+        }));
+        out.step("check", "done", "");
+        return Ok(());
     }
     let mut versions = newest_two(versions);
     if o.install_stick {

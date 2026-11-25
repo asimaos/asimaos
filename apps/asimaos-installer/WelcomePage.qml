@@ -18,7 +18,7 @@ WizardPage {
     onNext: win.next()
     footerStart: [
         DButton { text: qsTr("Try Asima OS first"); variant: "ghost"; large: true; onClicked: Backend.quit() },
-        DButton { text: qsTr("Repair an installed Asima OS"); variant: "ghost"; large: true; iconName: "tools-wizard"; onClicked: Backend.openRepair() }
+        DButton { text: qsTr("Repair an installed Asima OS"); variant: "ghost"; large: true; iconName: "tools-wizard"; onClicked: page.win.openRepair() }
     ]
 
     GridLayout {
