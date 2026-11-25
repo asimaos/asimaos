@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Asima OS: a signed system extension (D55). From a folder holding a usr/ tree it makes a system
+# extension image (EROFS with dm-verity and the signature of its root hash), signed with this
+# build's Secure Boot key, so installed computers of this build's key merge it into /usr
+# (asimaos-sysext). On such a computer: copy it to /var/lib/extensions/ as root, then
+# `systemctl reload asimaos-sysext`.
+#
+#   builder/make-sysext NAME DIR    → build/out/NAME.raw
+#
+# It runs in the builder container of the last OS build (systemd-repart, erofs-utils, cryptsetup).
+set -euo pipefail
+cd "$(dirname "$(readlink -f "$0")")/.."
+source ./builder/asimaos.conf
+die() { echo "make-sysext: $*" >&2; exit 1; }
+[[ $# -eq 2 ]] || { echo "usage: builder/make-sysext NAME DIR" >&2; exit 2; }
+name=$1 src=$(readlink -f "$2")
+[[ ${name} =~ ^[a-z0-9][a-z0-9._-]*$ ]] || die "the name may only have small letters, digits, dots and dashes"
+[[ -d ${src}/usr ]] || die "${src} has no usr/ folder"
+[[ -f build/keys/secureboot.key && -f build/keys/secureboot.crt ]] || die "build/keys has no Secure Boot key: build Asima OS once first"
+image="localhost/asimaos-builder:${ASIMAOS_ARCHIVE_DATE//\//-}-$(cat builder/Containerfile builder/pacman.conf.in | sha256sum | cut -c1-8)"
+podman image exists "${image}" || die "the builder container isn't there: build Asima OS once first"
+
+# The folder is copied into build/ first, so the container only sees the project folder.
+work="build/sysext/${name}"
+rm -rf "${work}" && mkdir -p "${work}" build/out
+cp -a "${src}/." "${work}/"
+mkdir -p "${work}/usr/lib/extension-release.d"
+# It fits every Asima OS of this extension level (os-release SYSEXT_LEVEL), whatever its version.
+printf 'ID=asimaos\nSYSEXT_LEVEL=1\n' > "${work}/usr/lib/extension-release.d/extension-release.${name}"
+rm -f "build/out/${name}.raw"
+podman run --rm --privileged -v "${PWD}:/work:Z" "${image}" \
+    systemd-repart --make-ddi=sysext --copy-source="/work/${work}" \
+        --private-key=/work/build/keys/secureboot.key --certificate=/work/build/keys/secureboot.crt \
+        "/work/build/out/${name}.raw"
+rm -rf "${work}"
+ls -lh "build/out/${name}.raw"

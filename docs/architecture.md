@@ -227,7 +227,7 @@ never go into a repository; they are kept in an encrypted archive (D50).
 
 | Key | Type | Signs |
 | --- | --- | --- |
-| Secure Boot key (MOK or db) | X.509 RSA-2048 | systemd-boot, every UKI, Asima Rescue, NVIDIA's modules, the IOMMU boot add-on |
+| Secure Boot key (MOK or db) | X.509 RSA-2048 | systemd-boot, every UKI, Asima Rescue, NVIDIA's modules, the IOMMU boot add-on, system extensions (their dm-verity root hash) |
 | Release key | Ed25519 (`aosupd keygen`) | Update files (header and manifest) and each build's `SHA256SUMS` |
 | Next release key (optional) | Ed25519 | Shipped ahead of a planned change: systems from a build that carries `release-next.pub` accept both |
 
@@ -393,6 +393,18 @@ Connect, KWallet Manager, Help Center. **Left out on purpose:** KDE Partition Ma
 repartition Asima OS's write-once disk), Kup (Asima Maintenance does backups), plasma-firewall (Asima
 Shield is the firewall) and the rest of KDE Gear; they are one click away in Discover. KDE full would
 add 2.2 GB and 374 packages to every image and update file (KDE standard: 666 packages, 3.8 GB).
+
+**Signed system extensions (D55):** programs can be added to `/usr` without changing the verified
+image, as `systemd-sysext` images, and only signed ones are used. `asimaos-sysext.service` takes
+the place of systemd's own units (`systemd-sysext.service` and `systemd-confext.service` are
+masked, as they would also merge folders and change `/etc`): before merging it opens every image
+in `/etc/extensions`, `/run/extensions`, `/var/lib/extensions` and `/usr/local/lib/extensions`
+under the policy `root=signed+absent:usr=signed+absent`, which sets dm-verity up with the image's
+signature, checked against the build's Secure Boot certificate (`/usr/lib/verity.d/asimaos.crt`)
+or one an administrator added in `/etc/verity.d`. Folders, other files and images that fail are
+moved to `/var/lib/asimaos/refused-extensions` with the reason, and Asima Maintenance → Security
+lists them. An extension fits every Asima OS of its level (`SYSEXT_LEVEL=1` in os-release);
+`builder/make-sysext NAME DIR` makes a signed one from a folder with a `usr/` tree.
 
 ## 12. Self-maintenance
 

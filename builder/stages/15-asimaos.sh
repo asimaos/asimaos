@@ -35,6 +35,9 @@ fi
 # Asima Maintenance checks with it whether the key is approved (mokutil --test-key).
 openssl x509 -in "${SB_CERT}" -outform DER -out "${ROOT}/usr/share/asimaos/keys/asimaos.der"
 chmod 0644 "${ROOT}/usr/share/asimaos/keys/asimaos.der"
+# Signed system extensions (D55): the same certificate is the one systemd checks their signatures
+# against (an administrator may add others in /etc/verity.d).
+install -Dm0644 "${SB_CERT}" "${ROOT}/usr/lib/verity.d/asimaos.crt"
 openssl x509 -in "${SB_CERT}" -noout -subject
 
 step "The IOMMU boot add-on for GPU passthrough, signed with this build's key"
@@ -125,6 +128,10 @@ with_root_mounts chroot "${ROOT}" systemctl enable snapd.socket snapd.apparmor.s
 # Handhelds' built-in controls (D55): InputPlumber manages only the handhelds its files name, and
 # Asima Gaming chooses which controller it shows to Steam and the games.
 with_root_mounts chroot "${ROOT}" systemctl enable inputplumber.service inputplumber-suspend.service
+# System extensions (D55): only signed images, checked by asimaos-sysext.service; systemd's own
+# units would also merge folders and configuration extensions, which can't be checked.
+with_root_mounts chroot "${ROOT}" systemctl mask systemd-sysext.service systemd-confext.service
+with_root_mounts chroot "${ROOT}" systemctl enable asimaos-sysext.service
 # Virtual machines and containers for everyone (D26): libvirt starts when first used, and
 # Podman's Docker-compatible socket is there for IDEs and dev containers.
 with_root_mounts chroot "${ROOT}" systemctl enable \

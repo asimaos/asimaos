@@ -575,6 +575,29 @@ DPage {
                 value: qsTr("%n active", "", (page.p.lsms || []).length)
                 tone: "info"
             }
+            // Signed system extensions (D55): programs added to /usr without changing the image.
+            ListRow {
+                Layout.fillWidth: true
+                iconName: "package-x-generic"
+                title: qsTr("System extensions")
+                subtitle: (page.p.extensions && page.p.extensions.merged.length > 0)
+                          ? page.p.extensions.merged.join(" · ")
+                          : qsTr("Programs added to the system without changing it; only images signed for Asima OS are used")
+                value: (page.p.extensions && page.p.extensions.refused.length > 0)
+                       ? qsTr("%n left out", "", page.p.extensions.refused.length)
+                       : qsTr("%n in use", "", page.p.extensions ? page.p.extensions.merged.length : 0)
+                tone: (page.p.extensions && page.p.extensions.refused.length > 0) ? "warn" : "info"
+            }
+            Repeater {
+                model: page.p.extensions ? page.p.extensions.refused : []
+                delegate: ListRow {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    title: qsTr("Left out: %1").arg(modelData.name)
+                    subtitle: qsTr("%1 It was moved to /var/lib/asimaos/refused-extensions.").arg(modelData.why)
+                    tone: "warn"
+                }
+            }
             ListRow {
                 Layout.fillWidth: true
                 iconName: "security-high"

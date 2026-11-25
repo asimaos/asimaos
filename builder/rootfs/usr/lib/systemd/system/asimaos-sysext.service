@@ -1,0 +1,21 @@
+# Asima OS (D55): signed system extensions only (see /usr/lib/asimaos/asimaos-sysext). In place of
+# systemd-sysext.service, which is masked, at the same point of the start.
+[Unit]
+Description=Asima OS: signed system extensions
+Documentation=man:systemd-sysext(8)
+DefaultDependencies=no
+After=local-fs.target
+Before=sysinit.target systemd-tmpfiles-setup.service shutdown.target
+Conflicts=shutdown.target
+ConditionKernelCommandLine=!asimaos.live
+ConditionCapability=CAP_SYS_ADMIN
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/asimaos/asimaos-sysext refresh
+ExecReload=/usr/lib/asimaos/asimaos-sysext refresh
+ExecStop=/usr/lib/asimaos/asimaos-sysext unmerge
+
+[Install]
+WantedBy=sysinit.target

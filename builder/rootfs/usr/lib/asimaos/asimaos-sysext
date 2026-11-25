@@ -1,0 +1,64 @@
+#!/usr/bin/bash
+# Asima OS (D55): system extensions add programs to /usr without changing the verified system
+# image (systemd-sysext), and only signed images may: each one's dm-verity signature must check
+# out against the Asima OS certificate (/usr/lib/verity.d) or one the administrator added
+# (/etc/verity.d). Folders, other files, and images that aren't signed or are damaged are moved
+# aside to /var/lib/asimaos/refused-extensions (with the reason), where Asima Maintenance shows
+# them; the rest is merged.
+#
+#   asimaos-sysext refresh   at start-up (asimaos-sysext.service), and after adding or removing one
+#   asimaos-sysext unmerge   at shut-down
+set -uo pipefail
+POLICY='root=signed+absent:usr=signed+absent:=ignore'
+REFUSED=/var/lib/asimaos/refused-extensions
+CHECK=/run/asimaos-sysext-check
+log() { echo "asimaos-sysext: $*" >&2; }
+
+refuse() {  # PATH REASON
+    local name
+    name=$(basename "$1")
+    mkdir -p "${REFUSED}"
+    rm -rf "${REFUSED:?}/${name}"
+    if mv -f "$1" "${REFUSED}/${name}"; then
+        echo "$2" > "${REFUSED}/${name}.why"
+        log "left out ${1}: $2"
+    else
+        log "could not move ${1} aside; no extension is merged"
+        exit 1
+    fi
+}
+
+# An image is used only when it opens with its signature checked (the mount sets dm-verity up
+# with it), under the same policy as the merge.
+signed() {  # IMAGE
+    mkdir -p "${CHECK}"
+    if systemd-dissect --image-policy="${POLICY}" --read-only --mount "$1" "${CHECK}" >/dev/null 2>&1; then
+        systemd-dissect --umount "${CHECK}" >/dev/null 2>&1 || umount -R "${CHECK}"
+        return 0
+    fi
+    return 1
+}
+
+refresh() {
+    local dir f
+    for dir in /etc/extensions /run/extensions /var/lib/extensions /usr/local/lib/extensions; do
+        [[ -d ${dir} ]] || continue
+        shopt -s nullglob dotglob
+        for f in "${dir}"/*; do
+            if [[ -d ${f} || ${f} != *.raw ]]; then
+                refuse "${f}" "Not a signed image: folders and other files can't be checked."
+            elif ! signed "${f}"; then
+                refuse "${f}" "Not signed with a trusted key, or damaged."
+            fi
+        done
+        shopt -u nullglob dotglob
+    done
+    rmdir "${CHECK}" 2>/dev/null
+    exec systemd-sysext refresh --image-policy="${POLICY}"
+}
+
+case ${1:-} in
+    refresh) refresh ;;
+    unmerge) exec systemd-sysext unmerge ;;
+    *) echo "usage: asimaos-sysext refresh | unmerge" >&2; exit 2 ;;
+esac

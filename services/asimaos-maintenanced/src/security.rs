@@ -69,7 +69,40 @@ pub async fn status(root: &Root) -> Value {
         "otherKeys": other_keys,
         "ownKeys": crate::ownkeys::status(root).await,
         "retirePending": retire_pending,
+        "extensions": extensions(root).await,
     })
+}
+
+/// Signed system extensions (D55): the ones merged into /usr now, and those asimaos-sysext left
+/// out, with the reason.
+async fn extensions(root: &Root) -> Value {
+    let merged: Vec<String> = if root.is_system() {
+        cmd::probe("systemd-sysext", &["list", "--json=short"])
+            .await
+            .and_then(|t| serde_json::from_str::<Value>(&t).ok())
+            .and_then(|v| v.as_array().cloned())
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|e| e["name"].as_str().map(String::from))
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let dir = root.path("/var/lib/asimaos/refused-extensions");
+    let mut refused: Vec<Value> = std::fs::read_dir(&dir)
+        .map(|rd| {
+            rd.flatten()
+                .filter_map(|e| {
+                    let file = e.file_name().to_string_lossy().into_owned();
+                    let name = file.strip_suffix(".why")?;
+                    let why = std::fs::read_to_string(e.path()).ok()?;
+                    Some(json!({ "name": name, "why": why.trim() }))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    refused.sort_by(|a, b| a["name"].as_str().cmp(&b["name"].as_str()));
+    json!({ "merged": merged, "refused": refused })
 }
 
 // ───────────────────────────────────────────────────────────────────────── Secure Boot (MOK)
