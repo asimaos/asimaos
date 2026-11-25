@@ -427,6 +427,13 @@ scrub, balance and SSD jobs are `/usr/lib/asimaos/asimaos-maintenance` and write
 
 ## 13. Hardware support and virtual machines
 
+**Extra kernel modules (D55, stage 16):** v4l2loopback (one virtual camera, which video apps see
+only while a program such as OBS Studio sends to it; it loads at start-up), vhba with CDEmu
+(virtual CD/DVD drives for disc images, for older games; for the person at the computer) and
+xpadneo (Xbox controllers over Bluetooth: every button, rumble, battery). They are built against
+the image's own kernel with the same snapshot's `linux-headers`, which only the build container
+gets, and signed with the build's Secure Boot key like NVIDIA's, so they load under lockdown too.
+
 | Hardware | Support |
 | --- | --- |
 | AMD and Intel GPUs | Mesa, Vulkan and OpenGL |

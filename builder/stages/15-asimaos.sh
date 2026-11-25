@@ -52,30 +52,9 @@ ukify build \
     --output="${ROOT}/usr/lib/asimaos/addons/asimaos-iommu.addon.efi"
 
 step "NVIDIA drivers signed with this build's key, so they also load under lockdown"
-# Arch's NVIDIA modules carry no signature. Signed here (sign-file's format: the module, a
-# detached PKCS#7 signature, struct module_signature, the magic), they load wherever the kernel
-# trusts this key: on PCs where it was approved on the blue MokManager screen. The initramfs only
-# locks the kernel down there (asimaos-early-mount).
-sign_module() {
-    local ko=$1 tmp len
-    tmp=$(mktemp -d)
-    zstd -dq "${ko}" -o "${tmp}/m.ko"
-    if tail -c 28 "${tmp}/m.ko" | grep -q 'Module signature appended'; then
-        rm -rf "${tmp}"; return 0                  # already signed (stage run again)
-    fi
-    openssl cms -sign -in "${tmp}/m.ko" -signer "${SB_CERT}" -inkey "${SB_KEY}" -binary -noattr -nocerts \
-        -nosmimecap -md sha256 -outform DER -out "${tmp}/sig"
-    len=$(stat -c %s "${tmp}/sig")
-    {
-        cat "${tmp}/m.ko" "${tmp}/sig"
-        printf '\0\0\2\0\0\0\0\0'                 # algo, hash, id_type = PKEY_ID_PKCS7, lengths, pad
-        printf "\\x$(printf %02x $((len >> 24 & 255)))\\x$(printf %02x $((len >> 16 & 255)))"
-        printf "\\x$(printf %02x $((len >> 8 & 255)))\\x$(printf %02x $((len & 255)))"
-        printf '~Module signature appended~\n'
-    } > "${tmp}/signed.ko"
-    zstd -q -19 -f "${tmp}/signed.ko" -o "${ko}"
-    rm -rf "${tmp}"
-}
+# Arch's NVIDIA modules carry no signature. Signed here (sign_module, common.sh), they load
+# wherever the kernel trusts this key: on PCs where it was approved on the blue MokManager screen.
+# The initramfs only locks the kernel down there (asimaos-early-mount).
 n=0
 for ko in "${ROOT}"/usr/lib/modules/*/extramodules/nvidia*.ko.zst; do
     sign_module "${ko}"

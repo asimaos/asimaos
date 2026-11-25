@@ -70,6 +70,30 @@ sign_outputs() {
     grep Fingerprint "${OUT}/asimaos-release-key.txt"
 }
 
+# A kernel module (.ko.zst) signed with this build's Secure Boot key, in sign-file's format: the
+# module, a detached PKCS#7 signature, struct module_signature, the magic. Modules signed so load
+# wherever the kernel trusts this key, under lockdown too (stages 15 and 16).
+sign_module() {
+    local ko=$1 tmp len
+    tmp=$(mktemp -d)
+    zstd -dq "${ko}" -o "${tmp}/m.ko"
+    if tail -c 28 "${tmp}/m.ko" | grep -q 'Module signature appended'; then
+        rm -rf "${tmp}"; return 0                  # already signed (stage run again)
+    fi
+    openssl cms -sign -in "${tmp}/m.ko" -signer "${SB_CERT}" -inkey "${SB_KEY}" -binary -noattr -nocerts \
+        -nosmimecap -md sha256 -outform DER -out "${tmp}/sig"
+    len=$(stat -c %s "${tmp}/sig")
+    {
+        cat "${tmp}/m.ko" "${tmp}/sig"
+        printf '\0\0\2\0\0\0\0\0'                 # algo, hash, id_type = PKEY_ID_PKCS7, lengths, pad
+        printf "\\x$(printf %02x $((len >> 24 & 255)))\\x$(printf %02x $((len >> 16 & 255)))"
+        printf "\\x$(printf %02x $((len >> 8 & 255)))\\x$(printf %02x $((len & 255)))"
+        printf '~Module signature appended~\n'
+    } > "${tmp}/signed.ko"
+    zstd -q -19 -f "${tmp}/signed.ko" -o "${ko}"
+    rm -rf "${tmp}"
+}
+
 # Updates that skip versions (D52): an update file and the USB stick's repair install on versions
 # from the past year (MIN_FROM, ASIMAOS_UPDATE_WINDOW) and carry every migration step newer than
 # that, up to this version (builder/migrations/<version>-<name>.sh). Sets MIN_FROM and STEPS

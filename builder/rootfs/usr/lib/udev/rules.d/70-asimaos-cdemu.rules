@@ -1,0 +1,4 @@
+# Asima OS (D55): CDEmu's virtual CD/DVD drives (vhba) for the person at the computer, without a
+# group of their own. Runs before 73-seat-late.rules, which turns "uaccess" into access for the
+# person at the computer only.
+SUBSYSTEM=="misc", KERNEL=="vhba_ctl", TAG+="uaccess"
