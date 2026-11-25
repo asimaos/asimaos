@@ -66,6 +66,8 @@ class AppCenterEngine : public QObject
     Q_PROPERTY(QVariantMap file READ file NOTIFY fileChanged)
     // Each kind: [{ id, title, icon, ready }].
     Q_PROPERTY(QVariantList kinds READ kinds NOTIFY installedChanged)
+    // Flatpak apps' caches in memory (D55): on or off, for this person.
+    Q_PROPERTY(bool cachesInMemory READ cachesInMemory NOTIFY installedChanged)
 
 public:
     static inline AppCenterEngine *instance = nullptr;
@@ -89,6 +91,7 @@ public:
     QVariantList groups() const { return m_groups; }
     QVariantMap file() const { return m_file; }
     QVariantList kinds() const;
+    bool cachesInMemory() const;
 
     Q_INVOKABLE void setPurpose(const QString &purpose);
     Q_INVOKABLE void search(const QString &text);
@@ -109,6 +112,8 @@ public:
     Q_INVOKABLE void installFile();
     Q_INVOKABLE void openUrl(const QString &url);
     Q_INVOKABLE void openUpdater();
+    // Keeps each Flatpak app's cache in memory (/run/asimaos/appcache), or on the disk again.
+    Q_INVOKABLE void setCachesInMemory(bool on);
 
     // Without a window (the user timer asimaos-appcenter-updates): counts the updates, then
     // tells the person in a notification; `done` runs when that is finished.
@@ -158,6 +163,7 @@ private:
     void countUpdates(const QString &kind, std::function<void(int, QStringList)> done);
     void loadGroups();
     void loadDemo();
+    void applyCaches(const QVariantList &apps, bool on);
 
     void enqueue(const Job &job);
     void runNext();
@@ -183,4 +189,5 @@ private:
     QString m_detail;
     QPointer<QProcess> m_process;
     int m_generation = 0;   // rows of an older tab or search don't land in a newer one
+    bool m_demoCaches = false;
 };

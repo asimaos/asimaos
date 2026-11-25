@@ -30,6 +30,8 @@ class GamingEngine : public QObject
     Q_PROPERTY(QVariantMap power READ power NOTIFY changed)
     Q_PROPERTY(QVariantMap gaming READ gaming NOTIFY changed)
     Q_PROPERTY(QVariantList controllers READ controllers NOTIFY changed)
+    // Xbox Wireless Adapters plugged in: [{ product, firmware }] (D55).
+    Q_PROPERTY(QVariantList dongles READ dongles NOTIFY changed)
     Q_PROPERTY(QVariantMap controllerOptions READ controllerOptions NOTIFY changed)
     Q_PROPERTY(QVariantMap handheld READ handheld NOTIFY changed)
     // RGB lights: { lights: [{ name, device }], color: "#RRGGBB", brightness: 0–100 }.
@@ -55,6 +57,7 @@ public:
     QVariantMap power() const { return m_power; }
     QVariantMap gaming() const { return m_gaming; }
     QVariantList controllers() const { return m_controllers; }
+    QVariantList dongles() const { return m_dongles; }
     QVariantMap controllerOptions() const { return m_controllerOptions; }
     QVariantMap handheld() const { return m_handheld; }
     QVariantMap lighting() const { return m_lighting; }
@@ -88,5 +91,6 @@ private:
     QVariantMap m_device, m_battery, m_thermals, m_power, m_gaming, m_controllerOptions, m_handheld, m_lighting;
     int m_rgbLights = -1;   // RGB lights in sysfs at the last look: a change asks the service again
     QVariantList m_controllers;
+    QVariantList m_dongles;
     QTimer m_liveTimer;
 };

@@ -9,6 +9,7 @@
 //!   asimaos-gamingd --session --root DIR   test mode: session bus, no polkit, a scratch system tree
 
 mod device;
+mod dongle;
 mod inputplumber;
 mod lighting;
 mod mouse;
@@ -73,12 +74,15 @@ impl Gaming {
             "lighting": lighting::status(&self.root),
             // The handheld's built-in controller through InputPlumber (D55), or null.
             "controller": inputplumber::status(&self.root, conn).await,
+            // Xbox Wireless Adapters plugged in, and whether their firmware is here (D55).
+            "dongles": dongle::status(&self.root),
         })
         .to_string()
     }
 
     /// area/key = handheld/tdp (int W), handheld/fan ("auto" | "max"), handheld/controller (the
-    /// built-in controller as "deck" | "xbox-elite" | "ds5-edge"), controllers/rumble (0–100 %),
+    /// built-in controller as "deck" | "xbox-elite" | "ds5-edge"), controllers/dongleFirmware (an
+    /// Xbox Wireless Adapter's product ID: its firmware from Microsoft), controllers/rumble (0–100 %),
     /// gaming/scheduler ("lavd" | "bpfland" | "default") or lighting/color ("#RRGGBB:percent", 0 %
     /// turns the lights off).
     async fn set(
@@ -108,6 +112,11 @@ impl Gaming {
             }
             ("handheld", "controller", zvariant::Value::Str(kind)) => {
                 inputplumber::set_controller(&self.root, conn, kind.as_str()).await.map_err(failed)?
+            }
+            // The Xbox Wireless Adapter's firmware, from Microsoft (D55): the value is its product ID.
+            ("controllers", "dongleFirmware", zvariant::Value::Str(pid)) => {
+                dongle::check_pid(pid.as_str()).map_err(|e| fdo::Error::InvalidArgs(e.to_string()))?;
+                dongle::get_firmware(&self.root, pid.as_str()).await.map_err(failed)?
             }
             ("controllers", "rumble", v) => {
                 let pct = match v {

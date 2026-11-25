@@ -32,8 +32,10 @@ each version changed: [CHANGELOG](../CHANGELOG.md).
 - The firmware's list of revoked boot programs (dbx) updated from Asima Maintenance, with TPM
   unlock kept working across it.
 - Signed system extensions (`systemd-sysext`, signed images only).
-- Extra kernel modules (vhba, v4l2loopback, xone, xpadneo), built against the exact kernel and
-  signed with the OS.
+- Extra kernel modules (vhba, v4l2loopback, xpadneo, xone with xpad-noone), built against the
+  exact kernel and signed with the OS; game controllers of every kind (XInput and DirectInput, wired,
+  Bluetooth and wireless receivers, the Xbox Wireless Adapter with its firmware from Microsoft on
+  request).
 - The two versions on the disk share their identical blocks (deduplication after each update).
 
 ### Apps
@@ -45,7 +47,7 @@ each version changed: [CHANGELOG](../CHANGELOG.md).
 - Asima Manager → Display: brightness of external monitors (DDC/CI through `ddcutil`).
 - Asima Dev: disk use and limits for containers, VMs and Nix (Btrfs quotas); no copy-on-write for VM
   disk folders.
-- Flatpak repair.
+- Flatpak repair; Flatpak apps' caches in memory, for those who switch it on.
 - **Asima App Center (D56):** every kind of Linux software in one place, with purposes as tabs
   and one row per kind; Android apps, Nix programs and container apps move in from Asima Dev, the
   Flatpak clean-up from Asima Maintenance and the app groups from Asima Hub.

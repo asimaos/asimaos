@@ -13,8 +13,10 @@ DPage {
     property string selected: Backend.controllers.length > 0 ? Backend.controllers[0].path : ""
     readonly property var current: Backend.controllers.find(c => c.path === page.selected) || ({})
 
-    function busLabel(bus) {
-        return bus === "bluetooth" ? qsTr("Bluetooth") : bus === "usb" ? qsTr("USB cable") : qsTr("Built in")
+    function busLabel(pad) {
+        const how = pad.bus === "bluetooth" ? qsTr("Bluetooth") : pad.bus === "usb" ? qsTr("USB (cable or receiver)")
+                  : pad.bus === "wireless" ? qsTr("Xbox Wireless Adapter") : qsTr("Built in")
+        return pad.input === "dinput" ? qsTr("%1 · DirectInput").arg(how) : pad.input === "xinput" ? qsTr("%1 · XInput").arg(how) : how
     }
 
     // In demo mode the tester runs right away so the page is alive.
@@ -30,7 +32,30 @@ DPage {
         Layout.fillWidth: true
         tone: "info"
         title: qsTr("No controllers connected")
-        text: qsTr("Plug one in with a cable, or pair it over Bluetooth. Xbox, PlayStation, Nintendo, 8BitDo and most others work right away.")
+        text: qsTr("Plug one in with a cable or its wireless receiver, or pair it over Bluetooth. XInput and DirectInput controllers, Xbox, PlayStation, Nintendo, 8BitDo and most others work right away.")
+    }
+
+    // The Xbox Wireless Adapter needs Microsoft's firmware, which Asima OS can't ship (D55).
+    Repeater {
+        model: (Backend.dongles || []).filter(d => !d.firmware)
+        delegate: InfoBanner {
+            id: dongleBanner
+            required property var modelData
+            Layout.fillWidth: true
+            tone: "warn"
+            title: qsTr("The Xbox Wireless Adapter needs its firmware")
+            text: qsTr("Its firmware is Microsoft's, so Asima OS can't include it. Asima Gaming can download it from Microsoft (Windows Update); using it means accepting Microsoft's terms of use.")
+            DButton {
+                text: qsTr("Download from Microsoft")
+                variant: "secondary"
+                iconName: "download"
+                onClicked: page.win.confirm({
+                    title: qsTr("Download the adapter's firmware?"),
+                    text: qsTr("It comes from Microsoft's Windows Update, under Microsoft's terms of use (microsoft.com/legal/terms-of-use). Asima Gaming checks it, then starts the adapter again."),
+                    icon: "download", tone: "accent", confirmText: qsTr("Download")
+                }, () => Backend.set("controllers", "dongleFirmware", dongleBanner.modelData.product))
+            }
+        }
     }
 
     GridLayout {
@@ -55,7 +80,7 @@ DPage {
                     padding: 16
                     iconName: modelData.bus === "bluetooth" ? "network-bluetooth" : "input-gamepad"
                     title: modelData.name
-                    subtitle: page.busLabel(modelData.bus)
+                    subtitle: page.busLabel(modelData)
                     selected: page.selected === modelData.path
                     onToggled: {
                         page.selected = modelData.path

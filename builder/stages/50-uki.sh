@@ -11,7 +11,7 @@ USRHASH="$(cat "${OUT}/usrhash_${V}.txt")"
 # efi_pstore: a kernel crash leaves its last messages in an EFI variable; systemd-pstore keeps
 # them in /var/lib/systemd/pstore at the next start, for Asima Maintenance → Health.
 # systemd.gpt_auto=0: nothing mounts the ESP by itself (/etc/fstab).
-CMDLINE="root=tmpfs rootflags=mode=0755 asimaos.version=${V} asimaos.usrhash=${USRHASH} rw panic=10 efi_pstore.pstore_disable=0 systemd.gpt_auto=0 lsm=landlock,lockdown,yama,integrity,apparmor,bpf quiet splash plymouth.ignore-serial-consoles console=ttyS0 console=tty0"
+CMDLINE="root=tmpfs rootflags=mode=0755 asimaos.version=${V} asimaos.usrhash=${USRHASH} rw panic=10 efi_pstore.pstore_disable=0 systemd.gpt_auto=0 lsm=landlock,lockdown,yama,integrity,apparmor,bpf firmware_class.path=/var/lib/asimaos/firmware quiet splash plymouth.ignore-serial-consoles console=ttyS0 console=tty0"
 
 step "Building UKI asimaos_${V}.efi"
 ukify build \

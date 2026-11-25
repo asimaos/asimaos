@@ -1210,9 +1210,11 @@ name = "asimaos-gamingd"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "libc",
  "asimaos-svc",
+ "hex",
+ "libc",
  "serde_json",
+ "sha2",
  "tokio",
  "zbus",
 ]

@@ -1,0 +1,25 @@
+#!/bin/sh
+# Asima OS (D55): run by udev (70-asimaos-controllers.rules) when a controller is plugged in.
+#   asimaos-controller-bind adapter INTERFACE          the Xbox Wireless Adapter: from mt76x2u to xone
+#   asimaos-controller-bind xinput INTERFACE VID PID   an XInput device: xpad learns its ID, unless a
+#                                                     driver has taken it already
+set -u
+usb=/sys/bus/usb
+case "${1:-}" in
+    adapter)
+        [ -e "$usb/drivers/mt76x2u/$2" ] && printf '%s' "$2" > "$usb/drivers/mt76x2u/unbind"
+        modprobe xone_dongle
+        [ -e "$usb/drivers/xone-dongle/$2" ] || printf '%s' "$2" > "$usb/drivers_probe"
+        ;;
+    xinput)
+        # Valid IDs only (four hex digits each): they are written to the kernel.
+        case "$3$4" in *[!0-9a-fA-F]*) exit 0 ;; esac
+        [ ${#3} -eq 4 ] && [ ${#4} -eq 4 ] || exit 0
+        # Drivers bind just after this event: give them that moment first.
+        sleep 2
+        [ -e "$usb/devices/$2/driver" ] && exit 0
+        modprobe xpad
+        printf '%s %s ff\n' "$3" "$4" > "$usb/drivers/xpad/new_id" 2>/dev/null || true
+        ;;
+esac
+exit 0

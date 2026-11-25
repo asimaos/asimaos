@@ -86,6 +86,7 @@ void GamingEngine::applyServiceStatus(const QJsonObject &s)
     m_handheld.insert("gameMode", s.value("device").toObject().value("gameMode").toString() == qEnvironmentVariable("USER"));
     if (s.value("device").toObject().contains("rumble"))
         m_controllerOptions.insert("rumble", s.value("device").toObject().value("rumble").toInt());
+    m_dongles = s.value("dongles").toArray().toVariantList();
     // The handheld's built-in controller through InputPlumber (D55): which controller Steam and
     // the games see, or nothing where InputPlumber doesn't manage one.
     const QJsonObject controller = s.value("controller").toObject();
@@ -338,6 +339,11 @@ void GamingEngine::set(const QString &area, const QString &key, const QVariant &
                 emit toast(tr("Couldn't change the refresh rate."), QStringLiteral("error"));
                 return;
             }
+        } else if (m_service && area == QLatin1String("controllers") && key == QLatin1String("dongleFirmware")) {
+            emit toast(tr("Downloading the adapter's firmware from Microsoft…"), QStringLiteral("info"));
+            m_service->call(QStringLiteral("Set"), {area, key, QVariant::fromValue(QDBusVariant(value.toString()))},
+                            [this](const QDBusMessage &) { emit toast(tr("The adapter has its firmware. Turn your controller on to pair it."), QStringLiteral("ok")); });
+            return;
         } else if (m_service && area == QLatin1String("handheld") && key == QLatin1String("controller")) {
             m_service->call(QStringLiteral("Set"), {area, key, QVariant::fromValue(QDBusVariant(value.toString()))});
         } else if (m_service && key == QLatin1String("gameMode")) {

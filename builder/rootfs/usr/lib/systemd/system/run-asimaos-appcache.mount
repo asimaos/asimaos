@@ -1,0 +1,17 @@
+# Asima OS (D55): a place in memory for Flatpak apps' caches, used only by those who switch it on in
+# Asima App Center. Its own size limit, so a full cache never fills /run: an app then only finds
+# its cache full.
+[Unit]
+Description=Asima OS: Flatpak apps' caches in memory
+DefaultDependencies=no
+Conflicts=umount.target
+Before=local-fs.target umount.target
+
+[Mount]
+What=tmpfs
+Where=/run/asimaos/appcache
+Type=tmpfs
+Options=mode=0755,nosuid,nodev,size=15%
+
+[Install]
+WantedBy=local-fs.target

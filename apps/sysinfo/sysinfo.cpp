@@ -260,29 +260,47 @@ QVariantList fans()
 
 QVariantList gamepads()
 {
+    // Game controllers of every kind: XInput and gamepad-style ones have the gamepad buttons
+    // (BTN_GAMEPAD, 0x130 on), DirectInput ones the joystick buttons (BTN_JOYSTICK, 0x120 on);
+    // both have sticks (absolute axes). Mice (0x110 on) and keyboards have neither.
     QVariantList out;
     const QString root = QStringLiteral("/sys/class/input/");
+    auto bitSet = [](const QStringList &words, int bit) {
+        const int wordBits = 64, index = bit / wordBits;
+        if (words.size() <= index)
+            return false;
+        const quint64 word = words.at(words.size() - 1 - index).toULongLong(nullptr, 16);
+        return (word & (quint64(1) << (bit % wordBits))) != 0;
+    };
     for (const QString &ev : entries(root, {QStringLiteral("event*")})) {
         const QString dev = root + ev + QStringLiteral("/device/");
-        // Key capability bitmap: hex words, most significant first. BTN_GAMEPAD = 0x130.
-        const QStringList words = readTrimmed(dev + QStringLiteral("capabilities/key")).split(QLatin1Char(' '), Qt::SkipEmptyParts);
-        const int bit = 0x130, wordBits = 64, index = bit / wordBits;
-        if (words.size() <= index)
-            continue;
-        const quint64 word = words.at(words.size() - 1 - index).toULongLong(nullptr, 16);
-        if (!(word & (quint64(1) << (bit % wordBits))))
+        const QStringList keys = readTrimmed(dev + QStringLiteral("capabilities/key")).split(QLatin1Char(' '), Qt::SkipEmptyParts);
+        const bool gamepad = bitSet(keys, 0x130);
+        const bool joystick = bitSet(keys, 0x120);
+        const QString abs = readTrimmed(dev + QStringLiteral("capabilities/abs"));
+        if (!(gamepad || joystick) || abs.isEmpty() || abs == QLatin1String("0"))
             continue;
         const QString vendor = readTrimmed(dev + QStringLiteral("id/vendor"));
         const QString bus = readTrimmed(dev + QStringLiteral("id/bustype"));
-        const QString kind = vendor == QLatin1String("045e") ? QStringLiteral("xbox")
-                           : vendor == QLatin1String("054c") ? QStringLiteral("playstation")
-                           : vendor == QLatin1String("057e") ? QStringLiteral("nintendo")
-                           : vendor == QLatin1String("2dc8") ? QStringLiteral("8bitdo")
-                           : QStringList{"28de", "0b05", "17ef", "1ee9", "2f24"}.contains(vendor) ? QStringLiteral("builtin")
-                           : QStringLiteral("generic");
+        // The driver tells the family best (an XInput pad from any maker is driven by xpad).
+        const QString driver = QFileInfo(QFileInfo(dev + QStringLiteral("device/driver")).canonicalFilePath()).fileName();
+        const QString kind =
+            QStringList{"xpad", "xpadneo", "hid-xpadneo", "microsoft"}.contains(driver) || driver.startsWith(QLatin1String("xone")) || vendor == QLatin1String("045e")
+                ? QStringLiteral("xbox")
+            : QStringList{"playstation", "sony"}.contains(driver) || vendor == QLatin1String("054c") ? QStringLiteral("playstation")
+            : driver == QLatin1String("nintendo") || vendor == QLatin1String("057e") ? QStringLiteral("nintendo")
+            : vendor == QLatin1String("2dc8") ? QStringLiteral("8bitdo")
+            : QStringList{"28de", "0b05", "17ef", "1ee9", "2f24"}.contains(vendor) ? QStringLiteral("builtin")
+            : QStringLiteral("generic");
+        // USB covers cables and 2.4 GHz receivers alike; xone's adapter shows its controllers as
+        // virtual devices.
+        const QString connection = bus == QLatin1String("0005") ? QStringLiteral("bluetooth")
+                                 : bus == QLatin1String("0003") ? QStringLiteral("usb")
+                                 : bus == QLatin1String("0006") ? QStringLiteral("wireless")
+                                 : QStringLiteral("builtin");
         out.append(item({{"name", readTrimmed(dev + QStringLiteral("name"))}, {"path", QStringLiteral("/dev/input/") + ev},
-                         {"vendor", vendor}, {"product", readTrimmed(dev + QStringLiteral("id/product"))},
-                         {"bus", bus == QLatin1String("0005") ? QStringLiteral("bluetooth") : bus == QLatin1String("0003") ? QStringLiteral("usb") : QStringLiteral("builtin")},
+                         {"vendor", vendor}, {"product", readTrimmed(dev + QStringLiteral("id/product"))}, {"bus", connection},
+                         {"input", gamepad ? QStringLiteral("xinput") : QStringLiteral("dinput")}, {"driver", driver},
                          {"hid", QFileInfo(dev + QStringLiteral("device")).canonicalFilePath()}, {"kind", kind}}));
     }
     return out;

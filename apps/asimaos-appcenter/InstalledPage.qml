@@ -98,6 +98,16 @@ DPage {
         }
     }
 
+    // Flatpak apps' caches in memory (D55): faster, and less writing to the disk.
+    Card {
+        Layout.fillWidth: true
+        title: qsTr("Keep Flatpak apps' caches in memory")
+        subtitle: qsTr("Apps start and browse faster and the disk is written to less; their caches are empty after each restart. Game launchers and Bottles keep theirs on the disk.")
+        icon: "media-flash"
+        tone: "info"
+        actions: [ DSwitch { checked: Backend.cachesInMemory; onToggled: Backend.setCachesInMemory(checked) } ]
+    }
+
     Card {
         Layout.fillWidth: true
         title: qsTr("Containers next to Distrobox")

@@ -433,10 +433,28 @@ scrub, balance and SSD jobs are `/usr/lib/asimaos/asimaos-maintenance` and write
 
 **Extra kernel modules (D55, stage 16):** v4l2loopback (one virtual camera, which video apps see
 only while a program such as OBS Studio sends to it; it loads at start-up), vhba with CDEmu
-(virtual CD/DVD drives for disc images, for older games; for the person at the computer) and
-xpadneo (Xbox controllers over Bluetooth: every button, rumble, battery). They are built against
-the image's own kernel with the same snapshot's `linux-headers`, which only the build container
-gets, and signed with the build's Secure Boot key like NVIDIA's, so they load under lockdown too.
+(virtual CD/DVD drives for disc images, for older games; for the person at the computer),
+xpadneo, xone and xpad-noone (below). They are built against the image's own kernel with the same
+snapshot's `linux-headers`, which only the build container gets, and signed with the build's
+Secure Boot key like NVIDIA's, so they load under lockdown too.
+
+**Game controllers of every kind (D55):** XInput controllers and 2.4 GHz receivers (`xpad`, here
+xpad-noone in place of the kernel's: Xbox 360 and original Xbox, wired and through the 360
+receiver; XInput devices it doesn't know by ID are taught to it by `70-asimaos-controllers.rules`
+from their USB interface, class ff/5d/01); Xbox One and Series controllers and accessories over
+USB, and Microsoft's Xbox Wireless Adapter (`xone`; the adapter is taken from the Wi-Fi driver
+`mt76x2u`, which knows its chip, by that rule alone, so USB Wi-Fi sticks with the chip keep their
+driver); Xbox controllers over Bluetooth (`xpadneo`); PlayStation, Nintendo and DirectInput
+controllers (the kernel's `hid-playstation`, `hid-nintendo`, `hid-generic`). The adapter's firmware
+is Microsoft's: Asima Gaming downloads it from Windows Update when the person asks (the files and
+SHA-256 sums xone's own install uses) into `/var/lib/asimaos/firmware`, where the kernel also looks
+(`firmware_class.path` on the boot image's command line).
+
+**Flatpak apps' caches in memory (D55, off unless switched on in Asima App Center):** a tmpfs at
+`/run/asimaos/appcache` with its own limit (15 % of the memory), a folder per person made as they
+sign in (`user@.service` drop-in), and per app the person's own Flatpak override:
+`XDG_CACHE_HOME` there and access to that folder only. Game launchers and Bottles keep their
+caches on the disk.
 
 | Hardware | Support |
 | --- | --- |

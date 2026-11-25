@@ -28,6 +28,8 @@
 #include <algorithm>
 #include <memory>
 
+#include <unistd.h>
+
 using Util::item;
 
 namespace {
@@ -644,7 +646,7 @@ void AppCenterEngine::refreshInstalled()
 
     if (ready(QStringLiteral("flatpak")))
         runAsync(this, QStringLiteral("flatpak"), {QStringLiteral("list"), QStringLiteral("--app"), QStringLiteral("--columns=application,name,version,installation")},
-                 [put](const QString &out, bool) {
+                 [this, put](const QString &out, bool) {
             QVariantList items;
             for (const QString &l : out.split(QLatin1Char('\n'), Qt::SkipEmptyParts)) {
                 const QStringList f = l.split(QLatin1Char('\t'));
@@ -654,6 +656,9 @@ void AppCenterEngine::refreshInstalled()
                 items << it;
             }
             put(QStringLiteral("flatpak"), items);
+            // Apps installed since (here or with Discover) get their cache in memory too.
+            if (cachesInMemory())
+                applyCaches(items, true);
         });
     if (ready(QStringLiteral("snap")))
         m_snapd->request(QStringLiteral("GET"), QStringLiteral("/v2/snaps"), {}, [put](const QJsonObject &r) {
@@ -1578,6 +1583,72 @@ void AppCenterEngine::openUpdater()
 {
     if (m_demo || !QProcess::startDetached(QStringLiteral("asimaos-updater"), {}))
         emit toast(tr("Opens Asima Updater."), QStringLiteral("info"));
+}
+
+// ───────────────────────────────────────────────────────────────────────── caches in memory
+
+namespace {
+// Game launchers and Wine keep large shader and download caches: they stay on the disk.
+const QStringList kCachesOnDisk{QStringLiteral("com.valvesoftware.Steam"), QStringLiteral("com.heroicgameslauncher.hgl"),
+                                QStringLiteral("net.lutris.Lutris"), QStringLiteral("com.usebottles.bottles"),
+                                QStringLiteral("org.prismlauncher.PrismLauncher")};
+
+QString settingsFile()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/asimaos/appcenter.conf");
+}
+
+QString appCache(const QString &id)
+{
+    return QStringLiteral("/run/asimaos/appcache/%1/%2").arg(::getuid()).arg(id);
+}
+
+// Whether this person's Flatpak override for the app already points its cache to memory.
+bool cacheOverridden(const QString &id)
+{
+    QFile f(share() + QStringLiteral("/flatpak/overrides/") + id);
+    return f.open(QIODevice::ReadOnly) && f.readAll().contains(("XDG_CACHE_HOME=" + appCache(id)).toUtf8());
+}
+} // namespace
+
+bool AppCenterEngine::cachesInMemory() const
+{
+    if (m_demo)
+        return m_demoCaches;
+    return QSettings(settingsFile(), QSettings::IniFormat).value(QStringLiteral("Flatpak/CachesInMemory"), false).toBool();
+}
+
+void AppCenterEngine::setCachesInMemory(bool on)
+{
+    if (m_demo) {
+        m_demoCaches = on;
+        emit installedChanged();
+        return;
+    }
+    QSettings(settingsFile(), QSettings::IniFormat).setValue(QStringLiteral("Flatpak/CachesInMemory"), on);
+    applyCaches(installedItems(QStringLiteral("flatpak")), on);
+    emit installedChanged();
+    emit toast(on ? tr("Apps keep their caches in memory from their next start.") : tr("Apps keep their caches on the disk again from their next start."),
+               QStringLiteral("ok"));
+}
+
+// A Flatpak override per app (this person's own): its XDG_CACHE_HOME in the memory place, which
+// the sandbox may use (created when the app starts). Turned off: the override's two entries go.
+void AppCenterEngine::applyCaches(const QVariantList &apps, bool on)
+{
+    if (!QFileInfo(QStringLiteral("/run/asimaos/appcache/%1").arg(::getuid())).isDir() && on)
+        return;   // not signed in through systemd: no place in memory
+    for (const QVariant &v : apps) {
+        const QString id = v.toMap().value("id").toString();
+        if (kCachesOnDisk.contains(id) || !validName(id) || (on && cacheOverridden(id)))
+            continue;
+        const QStringList args = on ? QStringList{QStringLiteral("override"), QStringLiteral("--user"),
+                                                  QStringLiteral("--env=XDG_CACHE_HOME=") + appCache(id),
+                                                  QStringLiteral("--filesystem=") + appCache(id) + QStringLiteral(":create"), id}
+                                    : QStringList{QStringLiteral("override"), QStringLiteral("--user"), QStringLiteral("--unset-env=XDG_CACHE_HOME"),
+                                                  QStringLiteral("--nofilesystem=") + appCache(id), id};
+        runAsync(this, QStringLiteral("flatpak"), args, [](const QString &, bool) {});
+    }
 }
 
 // ───────────────────────────────────────────────────────────────────────── the job runner
