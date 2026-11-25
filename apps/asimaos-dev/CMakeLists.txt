@@ -15,8 +15,6 @@ qt_add_qml_module(asimaos-dev
         Main.qml
         ContainersPage.qml
         MachinesPage.qml
-        NixPage.qml
-        AndroidPage.qml
         StoragePage.qml
 )
 

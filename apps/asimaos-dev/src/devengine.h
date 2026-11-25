@@ -9,13 +9,13 @@
 
 class ServiceClient;
 
-// Data and actions behind Asima Dev: containers (Distrobox on Podman), virtual machines, the
-// programs installed with Nix (D28: terminal and developer tools come from Nix or Distrobox) and
-// Android apps (Waydroid, D34). Everything here runs as you, without root, so Asima Dev needs no
-// system service of its own: setting Android up or removing it starts one of two system units
-// through systemd, which asks for the administrator's password (polkit), and disk limits go
-// through Asima Maintenance's service, which owns the disk (D55).
-// Demo mode: sample containers, a virtual machine and Android.
+// Data and actions behind Asima Dev: containers (Distrobox on Podman), virtual machines and their
+// disk use (D55). Nix programs and Android apps are in Asima App Center (D56). Everything here
+// runs as you, without root, so Asima Dev needs no system service of its own: keeping a graphics
+// card for virtual machines starts a system unit through systemd, which asks for the
+// administrator's password (polkit), and disk limits go through Asima Maintenance's service,
+// which owns the disk.
+// Demo mode: sample containers, virtual machines and graphics cards.
 class DevEngine : public QObject
 {
     Q_OBJECT
@@ -24,13 +24,9 @@ class DevEngine : public QObject
     Q_PROPERTY(bool demo READ demo CONSTANT)
     // { podman, distrobox, containers: [{ name, image, state, size }], vms: [{ name, detail, state, size }] }
     Q_PROPERTY(QVariantMap workspaces READ workspaces NOTIFY changed)
-    // { available, version, busy, programs: [{ name, detail }] }: your Nix profile.
-    Q_PROPERTY(QVariantMap nix READ nix NOTIFY changed)
     // GPU passthrough: { iommu, kept, gpus: [{ address, slot, name, screen, driver,
     // kept, ready, shared: [names] }] }.
     Q_PROPERTY(QVariantMap passthrough READ passthrough NOTIFY changed)
-    // Android apps (Waydroid): { available, ready, settingUp, setupFailed, removing, softwareOnly, running }.
-    Q_PROPERTY(QVariantMap android READ android NOTIFY changed)
     // Disk use and limits (D55, through asimaos-maintenanced): { available, counted, areas: [{ id,
     // person, separate, used, limit }] }: containers, virtual machines and Nix programs, the
     // system's and yours.
@@ -50,8 +46,6 @@ public:
 
     bool demo() const { return m_demo; }
     QVariantMap workspaces() const { return m_workspaces; }
-    QVariantMap nix() const { return m_nix; }
-    QVariantMap android() const { return m_android; }
     QVariantMap passthrough() const { return m_passthrough; }
     QVariantMap storage() const { return m_storage; }
 
@@ -72,23 +66,11 @@ public:
     Q_INVOKABLE int hostMemoryGb() const;
     Q_INVOKABLE void openContainer(const QString &name);
     Q_INVOKABLE void openApp(const QString &command);
-    // Nix: install a program from nixpkgs by name, remove one, update all, free up space.
-    Q_INVOKABLE void nixInstall(const QString &name);
-    Q_INVOKABLE void nixRemove(const QString &name);
-    Q_INVOKABLE void nixUpgrade();
-    Q_INVOKABLE void nixClean();
     Q_INVOKABLE void openUrl(const QString &url);
-    // Android apps: setting up downloads Android once (a system unit); the rest runs as you.
-    Q_INVOKABLE void androidSetup();
-    Q_INVOKABLE void androidRemove();
-    Q_INVOKABLE void androidOpen();
-    Q_INVOKABLE void androidStop();
-    Q_INVOKABLE void androidInstall(const QUrl &apk);
     // Disk use: read again; a limit in GB for an area ("nix", "vm:asha" …), 0 for none, after
     // the administrator's password.
     Q_INVOKABLE void readStorage();
     Q_INVOKABLE void setStorageLimit(const QString &area, double gb);
-    void setDemoAndroid(const QString &state);   // "" (ready) or "setup" (not set up yet)
     void setDemoGpuReady();                       // screenshots: the second card kept and on vfio-pci
 
 signals:
@@ -100,15 +82,10 @@ private:
     QVariantList readVms() const;
     void readPassthrough();
     void virsh(const QStringList &args, const QString &done, const QString &failed);
-    void readNix();
-    void runNix(const QString &program, const QStringList &args, const QString &started, const QString &done, const QString &failed);
-    void readAndroid();
     void startUnit(const QString &unit, const QString &started);
 
     bool m_demo;
     QVariantMap m_workspaces;
-    QVariantMap m_nix;
-    QVariantMap m_android;
     QVariantMap m_passthrough;
     QVariantMap m_storage;
     ServiceClient *m_maintenance = nullptr;   // asimaos-maintenanced, for disk use and limits

@@ -1,4 +1,4 @@
-// Asima Dev: containers, virtual machines, Nix programs and Android apps, without touching the system.
+// Asima Dev: containers and virtual machines, without touching the system.
 
 #include "asimaosui.h"
 #include "devengine.h"
@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
     const QCommandLineOption demoOpt(QStringLiteral("demo"), QStringLiteral("Show sample containers instead of this computer's."));
     const QCommandLineOption themeOpt(QStringLiteral("theme"), QStringLiteral("system, light or dark."), QStringLiteral("mode"), QStringLiteral("system"));
     const QCommandLineOption pageOpt(QStringLiteral("page"), QStringLiteral("Page to open."), QStringLiteral("page"), QStringLiteral("containers"));
-    const QCommandLineOption stateOpt(QStringLiteral("state"), QStringLiteral("Demo state for screenshots: setup (Android not set up yet), gpu (a graphics card kept for VMs)."),
+    const QCommandLineOption stateOpt(QStringLiteral("state"), QStringLiteral("Demo state for screenshots: gpu (a graphics card kept for VMs)."),
                                       QStringLiteral("state"));
     const QCommandLineOption sizeOpt(QStringLiteral("size"), QStringLiteral("Window size WxH."), QStringLiteral("size"));
     const QCommandLineOption delayOpt(QStringLiteral("delay"), QStringLiteral("Screenshot delay in ms."), QStringLiteral("ms"), QStringLiteral("1800"));
@@ -39,8 +39,6 @@ int main(int argc, char *argv[])
 
     const bool demo = parser.isSet(demoOpt) || !QFileInfo::exists(QStringLiteral("/run/initramfs/slots"));
     DevEngine backend(demo);
-    if (demo && parser.value(stateOpt).split(QLatin1Char('-')).contains(QLatin1String("setup")))
-        backend.setDemoAndroid(QStringLiteral("setup"));
     if (demo && parser.value(stateOpt).split(QLatin1Char('-')).contains(QLatin1String("gpu")))
         backend.setDemoGpuReady();
 

@@ -1,0 +1,11 @@
+# Asima OS (D56): Homebrew's folder for the person named in the instance (Asima App Center starts
+# it through systemd; polkit asks for the administrator's password).
+[Unit]
+Description=Asima OS: Homebrew for %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/asimaos/asimaos-homebrew-setup %i
+TimeoutStartSec=15min

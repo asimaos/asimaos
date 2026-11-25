@@ -24,6 +24,7 @@ add_subdirectory(asimaos-maintenance)
 add_subdirectory(asimaos-manager)
 add_subdirectory(asimaos-gaming)
 add_subdirectory(asimaos-dev)
+add_subdirectory(asimaos-appcenter)
 # The password dialog for administrator tasks, with fingerprint and face buttons (D37)
 add_subdirectory(asimaos-polkit-agent)
 # Installing and repairing
@@ -32,6 +33,6 @@ add_subdirectory(asimaos-rescue)
 
 # Translations: one set of files for every app, apps/i18n/asimaos_<lang>.ts, built into
 # each app (":/i18n"). `cmake --build build/apps --target update_translations` collects new strings.
-qt_add_translations(TARGETS asimaos-updater asimaos-maintenance asimaos-manager asimaos-gaming asimaos-dev
+qt_add_translations(TARGETS asimaos-updater asimaos-maintenance asimaos-manager asimaos-gaming asimaos-dev asimaos-appcenter
                             asimaos-polkit-agent asimaos-installer asimaos-rescue
                     TS_FILE_BASE asimaos TS_FILE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/i18n RESOURCE_PREFIX /i18n)

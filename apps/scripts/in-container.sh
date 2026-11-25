@@ -62,7 +62,7 @@ if [[ ${MODE} == dist ]]; then
     # The services' and apps' design and contracts, named by each unit's Documentation= line.
     install -Dm0644 apps/DESIGN.md "${D}/usr/share/doc/asimaos/DESIGN.md"
     # Each app its own icon (apps/ui/assets/make-app-icons.py); the installer and update files the mark.
-    for icon in Updater:updater Maintenance:maintenance Manager:manager Gaming:gaming Dev:dev; do
+    for icon in Updater:updater Maintenance:maintenance Manager:manager Gaming:gaming Dev:dev AppCenter:appcenter; do
         install -Dm0644 "apps/ui/assets/apps/${icon#*:}.svg" "${D}/usr/share/icons/hicolor/scalable/apps/io.github.asimaos.${icon%%:*}.svg"
     done
     install -Dm0644 apps/ui/assets/asimaos-mark.svg "${D}/usr/share/icons/hicolor/scalable/apps/io.github.asimaos.Installer.svg"
@@ -155,7 +155,8 @@ declare -A SHOTS=(
     [asimaos-manager]="home@1320x1010 power power:ideapad display display:laptop biometrics biometrics:enrolling hardware shield home:laptop@1320x1110
                       biometrics:laptop biometrics:laptop-face biometrics:webcam"
     [asimaos-gaming]="gaming controllers handheld@1320x1500 lighting gaming:laptop"
-    [asimaos-dev]="containers machines machines:gpu nix android android:setup storage"
+    [asimaos-dev]="containers machines machines:gpu storage"
+    [asimaos-appcenter]="store store:search store:busy installed updates file:file"
     [asimaos-installer]="welcome language disk account:filled encryption:filled encryption:filled-plain
                         summary:filled install:installing install:error done:done done:done-filled-plain
                         repair-disk:repair-disks repair-choice:repair-probed repair-run:repair-running repair-run:repair-done
@@ -167,7 +168,7 @@ declare -A SHOTS=(
 )
 
 for theme in light dark; do
-    for app in asimaos-updater asimaos-maintenance asimaos-manager asimaos-gaming asimaos-dev asimaos-installer asimaos-rescue \
+    for app in asimaos-updater asimaos-maintenance asimaos-manager asimaos-gaming asimaos-dev asimaos-appcenter asimaos-installer asimaos-rescue \
                asimaos-polkit-agent; do
         [[ -z ${ONLY} || ${ONLY} == "${app}" ]] || continue
         for shot in ${SHOTS[${app}]}; do shoot "${app}" "${shot}" "${theme}"; done

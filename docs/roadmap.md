@@ -8,7 +8,7 @@ each version changed: [CHANGELOG](../CHANGELOG.md).
 | Step | What | When |
 | --- | --- | --- |
 | **Done** | The test builds before the first public release (internal) | 2026-11-17 to 2026-11-24 |
-| **Now** | The planned OS features (D55) and Asima App Center (D56), listed below, then the first Asima OS build with new keys: the VM suites first, then the owner's PCs; every ⏳ in [status](status.md) gets a result | Now |
+| **Now** | The planned OS features (D55) and Asima App Center (D56), listed below, are in the source; next the first Asima OS build with new keys: the VM suites first, then the owner's PCs; every ⏳ in [status](status.md) gets a result | Now |
 | **Asima Hub everywhere (D39)** | In steps, each tested before the next. Done: the app ID `io.github.asimaos.Hub`; the signed feed with a new feed key and the news; the Get Asima OS page (the ISO download, writing the USB stick, "What you'll get on this PC"); the Linux Flatpak as a trial bundle on GitHub Releases, offered by Asima Manager and Asima Maintenance (D54). Then the installer's offer for after the first sign-in, Flathub, the AppImage, the Windows `.exe` and the Snap. Needs a SourceForge project for the big files and a project email address ([Asima Hub](https://github.com/asimaos/asimaos-hub)) | After the first build |
 | **Release candidate** | Once the owner confirms; the ISO and update file on SourceForge, the feed on the website (D50) | After that |
 | **Later** | The release tools (section 4) | Later |
@@ -19,7 +19,7 @@ each version changed: [CHANGELOG](../CHANGELOG.md).
 
 - **A security contact:** `SECURITY.md` and GitHub's private vulnerability reporting.
 
-## 3. Being built now (D55, D56)
+## 3. Built, to be tested (D55, D56)
 
 ### The system
 
@@ -46,7 +46,7 @@ each version changed: [CHANGELOG](../CHANGELOG.md).
 - Asima Dev: disk use and limits for containers, VMs and Nix (Btrfs quotas); no copy-on-write for VM
   disk folders.
 - Flatpak repair.
-- **Asima App Center (D56), last:** every kind of Linux software in one place, with purposes as tabs
+- **Asima App Center (D56):** every kind of Linux software in one place, with purposes as tabs
   and one row per kind; Android apps, Nix programs and container apps move in from Asima Dev, the
   Flatpak clean-up from Asima Maintenance and the app groups from Asima Hub.
 

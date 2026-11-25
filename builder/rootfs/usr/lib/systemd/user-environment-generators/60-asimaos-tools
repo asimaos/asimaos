@@ -1,0 +1,12 @@
+#!/bin/sh
+# Asima OS (D56): the programs Asima App Center installs in the home folder are found everywhere in
+# the session: pipx's and Go's, Rust's (rustup), Node.js's, Conda's (Miniforge) and Homebrew's.
+# Each folder only when it is there.
+add=""
+for d in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/.local/share/asimaos/go/bin" "$HOME/go/bin" \
+         "$HOME/.local/share/asimaos/node/bin" "$HOME/miniforge3/bin" /home/linuxbrew/.linuxbrew/bin /home/linuxbrew/.linuxbrew/sbin; do
+    [ -d "$d" ] && case ":$PATH:" in *":$d:"*) ;; *) add="$add:$d" ;; esac
+done
+[ -n "$add" ] && echo "PATH=${add#:}:$PATH"
+[ -d /home/linuxbrew/.linuxbrew ] && echo "HOMEBREW_PREFIX=/home/linuxbrew/.linuxbrew"
+exit 0

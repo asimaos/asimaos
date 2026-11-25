@@ -345,7 +345,7 @@ void MaintenanceEngine::loadDemo()
               {"diff", "--- factory/etc/ssh/sshd_config.d/50-asimaos.conf\n+++ (removed)\n@@ -1,2 +0,0 @@\n-PasswordAuthentication no\n-KbdInteractiveAuthentication no"}}),
     };
 
-    m_flatpak = item({{"apps", 27}, {"size", 9.1e9}, {"unused", 1.2e9}});
+    m_flatpak = item({{"apps", 27}, {"size", 9.1e9}});
 }
 
 void MaintenanceEngine::setDemoState(const QString &state)
@@ -548,7 +548,7 @@ void MaintenanceEngine::readFlatpak()
         ? Util::run(QStringLiteral("flatpak"), {QStringLiteral("list"), QStringLiteral("--app"), QStringLiteral("--columns=application")})
               .split(QLatin1Char('\n'), Qt::SkipEmptyParts)
         : QStringList();
-    m_flatpak = item({{"apps", int(apps.size())}, {"size", -1.0}, {"unused", -1.0}});
+    m_flatpak = item({{"apps", int(apps.size())}, {"size", -1.0}});
     m_flatpak.insert("hub", apps.contains(QStringLiteral("io.github.asimaos.Hub")));
 }
 
@@ -1103,27 +1103,6 @@ void MaintenanceEngine::resetSettings()
         return needsService(tr("Resetting the settings"));
     // The service schedules the reset and restarts the computer.
     m_service->call(QStringLiteral("ResetSettings"));
-}
-
-void MaintenanceEngine::cleanFlatpak()
-{
-    if (m_demo) {
-        m_flatpak.insert("unused", 0.0);
-        emit flatpakChanged();
-        emit toast(tr("Removed unused runtimes and freed 1.2 GB."), QStringLiteral("ok"));
-        return;
-    }
-    auto *p = new QProcess(this);
-    connect(p, &QProcess::finished, this, [this, p](int code) {
-        emit toast(code == 0 ? tr("Unused Flatpak runtimes removed.") : tr("Cleaning up Flatpak failed."),
-                   code == 0 ? QStringLiteral("ok") : QStringLiteral("error"));
-        if (code == 0) {
-            m_flatpak.insert("unused", 0.0);
-            emit flatpakChanged();
-        }
-        p->deleteLater();
-    });
-    p->start(QStringLiteral("flatpak"), {QStringLiteral("uninstall"), QStringLiteral("--unused"), QStringLiteral("-y"), QStringLiteral("--noninteractive")});
 }
 
 void MaintenanceEngine::openApp(const QString &command)

@@ -1,0 +1,11 @@
+# Asima OS (D56): ten minutes after signing in, then every six hours.
+[Unit]
+Description=Asima App Center: look for app updates now and then
+
+[Timer]
+OnStartupSec=10min
+OnUnitActiveSec=6h
+RandomizedDelaySec=15min
+
+[Install]
+WantedBy=timers.target

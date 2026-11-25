@@ -206,35 +206,27 @@ DPage {
             Layout.fillHeight: true
             Layout.preferredWidth: 1
             title: qsTr("Apps from Flathub")
-            subtitle: qsTr("Discover keeps them up to date; the system itself updates with Asima Updater.")
+            subtitle: qsTr("Asima App Center installs, updates and tidies every kind of app; the system itself updates with Asima Updater.")
             icon: "package"
             tone: "ok"
             spacing: 0
-            actions: [ DButton { text: qsTr("Asima Updater"); variant: "ghost"; iconName: "download"; onClicked: Backend.openApp("asimaos-updater") } ]
+            actions: [
+                DButton { text: qsTr("Asima App Center"); variant: "ghost"; iconName: "applications-all"; onClicked: Backend.openApp("asimaos-appcenter --page installed") },
+                DButton { text: qsTr("Asima Updater"); variant: "ghost"; iconName: "download"; onClicked: Backend.openApp("asimaos-updater") }
+            ]
 
             ListRow {
                 Layout.fillWidth: true
                 title: qsTr("Installed apps")
                 value: String(Backend.flatpak.apps || 0)
+                separator: Backend.flatpak.size > 0
             }
             ListRow {
                 Layout.fillWidth: true
                 visible: Backend.flatpak.size > 0
                 title: qsTr("On disk")
                 value: Theme.bytes(Backend.flatpak.size || 0)
-            }
-            ListRow {
-                Layout.fillWidth: true
-                title: qsTr("Unused runtimes")
-                subtitle: qsTr("Left behind by apps you removed")
-                value: Backend.flatpak.unused > 0 ? Theme.bytes(Backend.flatpak.unused) : Backend.flatpak.unused === 0 ? qsTr("None") : ""
                 separator: false
-                DButton {
-                    visible: Backend.flatpak.unused !== 0
-                    text: qsTr("Clean up")
-                    variant: "ghost"
-                    onClicked: Backend.cleanFlatpak()
-                }
             }
         }
 

@@ -1,0 +1,12 @@
+# Asima OS (D56): Asima App Center counts the updates of every kind of app in the background and,
+# when there are some, says so in a notification ("Open", "Update all").
+[Unit]
+Description=Asima App Center: look for app updates
+ConditionKernelCommandLine=!asimaos.live
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/asimaos-appcenter --check-updates
+Nice=10
+IOSchedulingClass=idle

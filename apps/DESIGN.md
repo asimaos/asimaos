@@ -13,11 +13,12 @@ and, once it works, left alone: a change to one app or its service never touches
 | App | Where | Job |
 | --- | --- | --- |
 | [Asima Updater](#asima-updater) (`asimaos-updater`, `asimaos-updaterd`) | `/usr` | Update files and the versions in the start menu: install, reinstall, go back. Never looks for updates online (D2) |
-| [Asima Maintenance](#asima-maintenance) (`asimaos-maintenance`, `asimaos-maintenanced`) | `/usr` | Health, Secure Boot and the disk's keys, snapshots and backups, changed system files, Flatpak clean-up, the problem report, factory reset |
+| [Asima Maintenance](#asima-maintenance) (`asimaos-maintenance`, `asimaos-maintenanced`) | `/usr` | Health, Secure Boot and the disk's keys, snapshots and backups, changed system files, disk use and limits, the problem report, factory reset |
 | [Asima Manager](#asima-manager) (`asimaos-manager`, `asimaos-managerd`, `asimaos-faced`) | `/usr` | This computer's settings: power and battery, display and keyboard light, fingerprint and face, hardware, Asima Shield (the firewall) |
 | [Asima Gaming](#asima-gaming) (`asimaos-gaming`, `asimaos-gamingd`) | `/usr` | Power mode and CPU scheduler for games, overlay, controllers, a handheld's own controls, RGB lighting (D34) |
-| [Asima Dev](#asima-dev) (`asimaos-dev`) | `/usr` | Containers, virtual machines with a graphics card of their own, Nix programs, Android apps (D34); runs as you, so it has no service |
-| [Asima Hub](#asima-hub) (`io.github.asimaos.Hub`) | Its own repository; Windows and Linux; **never preinstalled** (D3) | Everything online, on any PC: news, a PC check, the ISO and the USB stick; on Asima OS also updates and app groups (D39) |
+| [Asima Dev](#asima-dev) (`asimaos-dev`) | `/usr` | Containers, virtual machines with a graphics card of their own, their disk use and limits; runs as you, so it has no service |
+| [Asima App Center](#asima-app-center) (`asimaos-appcenter`) | `/usr` | Every kind of software for Linux: Flatpak, Snap, AppImage, Android, Windows, containers, Nix, Homebrew, Python, Node.js, Rust, Go, Conda (D56); with Asima Hub, the only app that goes online |
+| [Asima Hub](#asima-hub) (`io.github.asimaos.Hub`) | Its own repository; Windows and Linux; **never preinstalled** (D3) | Everything online, on any PC: news, a PC check, the ISO and the USB stick; on Asima OS also updates (D39; the app groups are Asima App Center's, D56) |
 | [Asima OS Installer](#asima-os-installer) (`asimaos-installer`) | The ISO only | Whole-disk installation |
 | [Asima Rescue](#asima-rescue) (`EFI/Asima/asimaos-rescue.efi`) | The ESP | The repair system, entirely in RAM |
 | [The password dialog](#the-asima-os-password-dialog-asimaos-polkit-agent-d37) (`asimaos-polkit-agent`) | `/usr` | Approving admin tasks, with fingerprint and face buttons (D37) |
@@ -130,7 +131,7 @@ Looking after the installed system.
 
 | Page | Shows | Actions (all through `asimaos-maintenanced`) |
 | --- | --- | --- |
-| Overview | Status hero, storage, security, last backup, snapshots, Flatpak apps, recent activity; a warning when another system (Windows) has put itself first in the firmware's start order; Asima Hub | Run health check, clean up Flatpak, open Asima Updater, get Asima Hub (its always-latest download in the browser, D54) or open it, start Asima OS first (moves the entry this start came from, `BootCurrent`, to the front of `BootOrder`; left alone while a new boot loader is on trial) |
+| Overview | Status hero, storage, security, last backup, snapshots, Flatpak apps, recent activity; a warning when another system (Windows) has put itself first in the firmware's start order; Asima Hub | Run health check, open Asima App Center (which has the Flatpak clean-up since D56) and Asima Updater, get Asima Hub (its always-latest download in the browser, D54) or open it, start Asima OS first (moves the entry this start came from, `BootCurrent`, to the front of `BootOrder`; left alone while a new boot loader is on trial) |
 | Health | Score ring, checks, automatic maintenance schedule | Run full check |
 | Security | Secure Boot with the Asima OS key, own Secure Boot keys in the firmware (prepare, Setup Mode, write; the saved certificates to keep or leave out), other approved keys (earlier builds', another system's), disk encryption, automatic unlock (TPM), recovery key, system protection (dm-verity, lockdown, security modules, the firmware's revocation list through Discover's firmware updates) | Set up Secure Boot (one-time code for the blue MOK screen, D16), retire chosen old keys (removed and blocked in MOKX, one code for both questions on the blue screen), restart to firmware settings, set up automatic unlock (D10), or unlock with a PIN instead (D49: the optional way; change the PIN, switch between the two, turn off), change the disk passphrase, make a new recovery key (shown once; the old one stops working, because keys are never stored) |
 | Snapshots & Backup | Daily and pre-update snapshots; backup destination, schedule, last run, restore test; on an encrypted disk, when the encryption header was last copied (each backup keeps a LUKS2 header copy, tag `asimaos-disk-header`, the newest 4) | Open snapshots in Dolphin, snapshot now, back up now, set up / change the destination |
@@ -246,11 +247,11 @@ controller connects. Without a saved colour the lights keep the firmware's own.
 
 ## Asima Dev
 
-Containers, virtual machines, Nix programs and Android apps. Everything here runs as you
-(Distrobox on rootless Podman, libvirt's session, your own Nix profile, Waydroid's session), so
-Asima Dev has no service. Setting Android up or removing it starts one of two system units through
-systemd's `StartUnit` (polkit `org.freedesktop.systemd1.manage-units`, the administrator's password);
-disk use and limits come from Asima Maintenance's service, which owns the disk (D55). Each person's
+Containers and virtual machines; Nix programs and Android apps moved to [Asima App Center](#asima-app-center)
+(D56). Everything here runs as you (Distrobox on rootless Podman, libvirt's session), so Asima Dev
+has no service. Keeping a graphics card for virtual machines starts a system unit through systemd's
+`StartUnit` (polkit `org.freedesktop.systemd1.manage-units`, the administrator's password); disk use
+and limits come from Asima Maintenance's service, which owns the disk (D55). Each person's
 containers and virtual machine disks live in Btrfs subvolumes of their own (`~/.local/share/containers`,
 `~/.local/share/libvirt/images`, made at the first sign-in by the user service `asimaos-dev-storage`;
 disk images without copy-on-write), so they can be limited and stay out of the snapshots of `/home`.
@@ -259,10 +260,49 @@ disk images without copy-on-write), so they can be limited and stay out of the s
 | --- | --- | --- |
 | Containers | Every container with its image and state; Podman and Distrobox status | Create from Ubuntu, Fedora, Arch or Debian; open in Konsole (`distrobox enter`) |
 | Virtual machines | Your virtual machines (`virsh -c qemu:///session`), with memory, cores and disk size; a form for a new one: Windows 11 (UEFI, Secure Boot, TPM 2.0 by swtpm, SATA and e1000e, which need no extra drivers) or Linux (UEFI, virtio), from an installer disc | `qemu-img`, `virsh define/start/shutdown/undefine` in your libvirt session, passt for the network; the screen opens in Virtual Machine Manager (Flathub) |
-| Nix programs (D28) | Your Nix profile (`nix profile list`) and Nix's state | Install by name from nixpkgs (`nix profile install nixpkgs#NAME`), remove, update all (`nix profile upgrade --all`), free up space (`nix-collect-garbage --delete-older-than 30d`); `nix-command` and flakes are on in `/etc/nix/nix.conf` |
 | Graphics card for VMs | Every graphics card: the one showing the screen stays with Asima OS; a second one can be kept for VMs (warning when its IOMMU group holds other devices); "Give it …" when making a VM | `asimaos-passthrough-on@ADDRESS.service` / `asimaos-passthrough-off.service` through systemd (administrator's password): `/etc/asimaos/passthrough.conf`, the signed IOMMU add-on in the ESP's `loader/addons/`, unlimited locked memory for the person's services; `asimaos-passthrough-bind.service` hands the card to vfio-pci at every start; `71-asimaos-vfio.rules` gives the person its VFIO group; VMs get `<hostdev managed='no'>` |
-| Android apps (D28, D34) | Set up (downloads Android, about 1 GB), its progress, open Android, stop it, install an app file, remove Android with all its apps; a warning where only NVIDIA graphics draw Android in software | `asimaos-android-setup.service` (`waydroid init`, then its container at every start) and `asimaos-android-remove.service` through systemd; the rest as you (`waydroid` session) |
 | Disk use (D55) | How much your containers and virtual machines, the system's and Nix programs take, against a limit for each (Btrfs simple quotas, on from the installation); an area made before it was kept apart is counted with the home folder | A limit per area from 10 GB to 1 TB, or none: `Maintenance1.SetStorageLimit` (polkit `io.github.asimaos.maintenance.storage`, `btrfs qgroup limit`) |
+
+## Asima App Center
+
+Every kind of software for Linux in one window (D56), next to KDE Discover. **Apps** has the
+purposes as tabs along the top (Discover, Games, Graphics & photos, Audio & video, Office,
+Internet & chat, Development, Education & science, System & tools) and one row per kind of
+software down the page, each scrolling sideways; a search looks through every kind at once. On
+Discover the signed feed's app groups (D39) install a set of apps in one go. **Installed** lists
+what is there, kind by kind, with each kind's tools; **Updates** counts what can be updated and
+installs it all with one click; an **app file** opened with it (`.flatpakref`, `.flatpak`, `.snap`,
+`.AppImage`, `.apk`, `.exe`, `.msi`: it is their default app) says what it is before installing.
+Changes run one after another; the sidebar shows the one running and how many wait.
+
+| Kind | Catalogue (online) | Installs with | Set up |
+| --- | --- | --- | --- |
+| Flatpak | Flathub's API v2 (popular, categories, search) | `flatpak install --system flathub ID` (Flatpak's own polkit) | In the image |
+| Snap | snapd's `/v2/find` (sections, search) | snapd's REST API with `X-Allow-Interaction` (polkit) | In the image (D28) |
+| AppImage | AppImageHub's `feed.json` (GitHub-hosted ones) | The newest GitHub release's AppImage into `~/Applications`, a menu entry `asimaos-appimage-*.desktop` (source and version in it); "Clean up the menu" removes entries whose file is gone | In the image |
+| Android | F-Droid's search and `api/v1/packages` | F-Droid's suggested APK, `waydroid app install` | `asimaos-android-setup.service` (downloads Android) |
+| Windows | — | An `.exe` or `.msi` run in the "Windows apps" bottle (`bottles-cli`, Flatpak file forwarding) | Bottles from Flathub, and the bottle |
+| Containers | — (a program's name) | Into the first Distrobox container (one from Arch Linux when there is none) with its own package manager, then `distrobox-export`; Toolbx is in the image too | JuNest in the home folder (`junest setup`) |
+| Nix | `nix search nixpkgs` | `nix profile install nixpkgs#NAME`; "Free up space" (`nix-collect-garbage --delete-older-than 30d`) | In the image (D28) |
+| Homebrew | formulae.brew.sh | `brew install` | `asimaos-homebrew-setup@NAME.service` (`/home/linuxbrew`, the administrator's password), then Homebrew from its Git repository |
+| Python | PyPI (an exact name) | `pipx install` | pipx in a Python environment of its own (`~/.local/share/asimaos/pipx-venv`) |
+| Node.js | npm's registry search | `npm install -g` | The newest LTS from nodejs.org (checked against `SHASUMS256.txt`) in `~/.local/share/asimaos/node` |
+| Rust | crates.io | `cargo install` | rustup from static.rust-lang.org (checked against its `.sha256`) |
+| Go | — (a module path) | `go install PATH@latest` | The newest release from go.dev (its SHA-256) in `~/.local/share/asimaos/go` |
+| Conda | anaconda.org (conda-forge) | `conda create -n NAME -c conda-forge NAME` | Miniforge from GitHub (its `.sha256`) in `~/miniforge3` |
+
+Catalogue answers are kept in `~/.cache/asimaos-appcenter` (a few hours; also when offline). Every
+program it installs in the home folder is found in the whole session through the user environment
+generator `60-asimaos-tools`. **Updates:** `asimaos-appcenter --check-updates` (the user timer
+`asimaos-appcenter-updates.timer`: ten minutes after signing in, then every six hours) counts
+Flatpak, Snap, AppImage, Homebrew and npm updates and, when there are some, shows a notification
+with "Open" and "Update all". **Moved in (D56):** the Flatpak clean-up (from Asima Maintenance),
+Flatpak repair (`Maintenance1.RepairFlatpak` for everyone's apps, `flatpak repair --user` for the
+person's), Android apps and Nix programs (from Asima Dev), the app groups (from Asima Hub). Asima OS's
+own updates stay with Asima Updater and Asima Hub (D2).
+
+Demo mode (`--demo`, or automatically outside Asima OS) shows sample rows; screenshot states:
+`search`, `busy` (a change running), `file` (an AppImage opened with it).
 
 ## Asima OS Installer
 

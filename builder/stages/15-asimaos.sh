@@ -35,6 +35,13 @@ fi
 # Asima Maintenance checks with it whether the key is approved (mokutil --test-key).
 openssl x509 -in "${SB_CERT}" -outform DER -out "${ROOT}/usr/share/asimaos/keys/asimaos.der"
 chmod 0644 "${ROOT}/usr/share/asimaos/keys/asimaos.der"
+# Asima App Center checks the app groups in the website's feed with the feed key's public half
+# (D56), as Asima Hub does.
+if [[ -f ${KEYS}/feed.pub ]]; then
+    install -Dm0644 "${KEYS}/feed.pub" "${ROOT}/usr/share/asimaos/keys/feed.pub"
+else
+    echo "  no feed key in build/keys: Asima App Center shows no app groups"
+fi
 # Signed system extensions (D55): the same certificate is the one systemd checks their signatures
 # against (an administrator may add others in /etc/verity.d).
 install -Dm0644 "${SB_CERT}" "${ROOT}/usr/lib/verity.d/asimaos.crt"
@@ -102,7 +109,7 @@ with_root_mounts chroot "${ROOT}" systemctl enable \
     asimaos-reset-settings.service asimaos-nvidia-flatpak.service asimaos-tpm-rotation.service asimaos-face-sync.service \
     asimaos-secureboot-db.path
 # Snap and Nix start when first used (D28). Waydroid's container starts once Android is set up
-# in Asima Dev (it downloads the Android system then).
+# in Asima App Center (it downloads the Android system then, D56).
 with_root_mounts chroot "${ROOT}" systemctl enable snapd.socket snapd.apparmor.service nix-daemon.socket
 # Handhelds' built-in controls (D55): InputPlumber manages only the handhelds its files name, and
 # Asima Gaming chooses which controller it shows to Steam and the games.
@@ -117,7 +124,8 @@ with_root_mounts chroot "${ROOT}" systemctl enable \
     virtqemud.socket virtqemud-ro.socket virtqemud-admin.socket virtnetworkd.socket virtnetworkd-ro.socket \
     virtstoraged.socket virtstoraged-ro.socket virtnodedevd.socket virtnodedevd-ro.socket \
     virtsecretd.socket virtsecretd-ro.socket virtlogd.socket virtlockd.socket
-with_root_mounts chroot "${ROOT}" systemctl --global enable podman.socket asimaos-desktop-check.service asimaos-dev-storage.service
+with_root_mounts chroot "${ROOT}" systemctl --global enable podman.socket asimaos-desktop-check.service asimaos-dev-storage.service \
+    asimaos-appcenter-updates.timer
 # The system's virtual machines, networks, storage pools and secrets (qemu:///system) are defined
 # in @vm next to their disks (D53): libvirt's factory definitions, as the package ships them, move
 # to /usr, and the early mount binds /var/lib/libvirt/definitions/<folder> over the empty folders
@@ -138,6 +146,29 @@ chmod 0700 "${DEFS}/secrets" "${ROOT}/etc/libvirt/secrets"
 with_root_mounts chroot "${ROOT}" systemctl enable \
     vboxservice.service vmtoolsd.service vmware-vmblock-fuse.service hv_kvp_daemon.service hv_vss_daemon.service
 with_root_mounts chroot "${ROOT}" systemctl set-default graphical.target
+
+step "Asima App Center opens every app file (D56)"
+# The default for these file types, where KDE keeps its defaults too (kde-mimeapps.list, when a
+# package ships one, wins over mimeapps.list); a person can still choose another app for them.
+python3 - "${ROOT}/usr/share/applications" <<'PY'
+import pathlib, sys
+apps = pathlib.Path(sys.argv[1])
+types = ["application/vnd.flatpak.ref", "application/vnd.flatpak", "application/vnd.snap", "application/vnd.appimage",
+         "application/x-iso9660-appimage", "application/vnd.android.package-archive", "application/x-ms-dos-executable",
+         "application/x-msdownload", "application/x-msi", "application/x-ms-installer"]
+for name in ["mimeapps.list", "kde-mimeapps.list"]:
+    f = apps / name
+    if name != "mimeapps.list" and not f.exists():
+        continue
+    lines = f.read_text(encoding="utf-8").splitlines() if f.exists() else []
+    lines = [l for l in lines if l.split("=", 1)[0] not in types]
+    if "[Default Applications]" not in lines:
+        lines += ["", "[Default Applications]"] if lines else ["[Default Applications]"]
+    i = lines.index("[Default Applications]") + 1
+    lines[i:i] = [f"{t}=io.github.asimaos.AppCenter.desktop" for t in types]
+    f.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"  {name}: {len(types)} app file types")
+PY
 
 step "System defaults"
 # Administrators (group wheel, D10) may use sudo; polkit already treats wheel as admin.

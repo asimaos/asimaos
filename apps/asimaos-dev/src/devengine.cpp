@@ -31,8 +31,6 @@ DevEngine::DevEngine(bool demo, QObject *parent)
 {
     if (!m_demo) {
         readWorkspaces();
-        readNix();
-        readAndroid();
         readPassthrough();
         readStorage();
         return;
@@ -45,21 +43,12 @@ DevEngine::DevEngine(bool demo, QObject *parent)
             item({{"id", "nix"}, {"person", QVariant()}, {"separate", true}, {"used", gb(6.4)}, {"limit", QVariant()}}),
             item({{"id", "containers"}, {"person", QVariant()}, {"separate", true}, {"used", gb(0.2)}, {"limit", QVariant()}}),
             item({{"id", "vm"}, {"person", QVariant()}, {"separate", true}, {"used", gb(0.0)}, {"limit", QVariant()}})}}});
-    setDemoAndroid(QString());
     m_passthrough = item({{"iommu", true}, {"kept", QString()},
         {"gpus", QVariantList{
             item({{"address", "0000:06:00.0"}, {"slot", "0000:06:00"}, {"name", "AMD Radeon 780M"}, {"screen", true}, {"driver", "amdgpu"},
                   {"kept", false}, {"ready", false}, {"shared", QStringList{}}}),
             item({{"address", "0000:01:00.0"}, {"slot", "0000:01:00"}, {"name", "NVIDIA GeForce RTX 4060"}, {"screen", false},
                   {"driver", "nvidia"}, {"kept", false}, {"ready", false}, {"shared", QStringList{}}})}}});
-    m_nix = item({
-        {"available", true}, {"version", "2.35.6"}, {"busy", false},
-        {"programs", QVariantList{
-            item({{"name", "neovim"}, {"detail", QStringLiteral("nixpkgs#neovim")}}),
-            item({{"name", "ripgrep-all"}, {"detail", QStringLiteral("nixpkgs#ripgrep-all")}}),
-            item({{"name", "nodejs_22"}, {"detail", QStringLiteral("nixpkgs#nodejs_22")}}),
-            item({{"name", "btop"}, {"detail", QStringLiteral("nixpkgs#btop")}})}},
-    });
     m_workspaces = item({
         {"podman", true}, {"distrobox", true},
         {"containers", QVariantList{
@@ -85,100 +74,6 @@ void DevEngine::readWorkspaces()
     }
     m_workspaces = item({{"podman", podman}, {"distrobox", Util::has(QStringLiteral("distrobox"))}, {"containers", containers},
                          {"vms", readVms()}, {"libvirt", Util::has(QStringLiteral("virsh"))}});
-}
-
-void DevEngine::readNix()
-{
-    const bool available = Util::has(QStringLiteral("nix"));
-    QVariantList programs;
-    QString version;
-    if (available) {
-        version = Util::run(QStringLiteral("nix"), {QStringLiteral("--version")}).section(QLatin1Char(' '), -1).trimmed();
-        const QJsonObject list = QJsonDocument::fromJson(Util::run(QStringLiteral("nix"), {QStringLiteral("profile"), QStringLiteral("list"),
-                                                         QStringLiteral("--json")}).toUtf8()).object();
-        const QJsonObject elements = list.value("elements").toObject();
-        for (auto it = elements.begin(); it != elements.end(); ++it) {
-            const QJsonObject e = it.value().toObject();
-            const QString url = e.value("originalUrl").toString().replace(QStringLiteral("flake:"), QString());
-            programs.append(item({{"name", it.key()}, {"detail", url.isEmpty() ? QString() : url + QLatin1Char('#') + it.key()}}));
-        }
-    }
-    m_nix = item({{"available", available}, {"version", version}, {"busy", m_nix.value("busy").toBool()}, {"programs", programs}});
-}
-
-void DevEngine::runNix(const QString &program, const QStringList &args, const QString &started, const QString &done, const QString &failed)
-{
-    if (m_nix.value("busy").toBool()) {
-        emit toast(tr("Nix is still busy. Try again in a moment."), QStringLiteral("info"));
-        return;
-    }
-    auto *p = new QProcess(this);
-    connect(p, &QProcess::finished, this, [this, p, done, failed](int code) {
-        m_nix.insert("busy", false);
-        readNix();
-        emit changed();
-        emit toast(code == 0 ? done : failed, code == 0 ? QStringLiteral("ok") : QStringLiteral("error"));
-        p->deleteLater();
-    });
-    m_nix.insert("busy", true);
-    emit changed();
-    p->start(program, args);
-    emit toast(started, QStringLiteral("info"));
-}
-
-void DevEngine::nixInstall(const QString &name)
-{
-    static const QRegularExpression valid(QStringLiteral("^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$"));
-    if (!valid.match(name).hasMatch()) {
-        emit toast(tr("Type a program's name as nixpkgs knows it, for example ripgrep."), QStringLiteral("warn"));
-        return;
-    }
-    if (m_demo) {
-        QVariantList list = m_nix.value("programs").toList();
-        list.prepend(item({{"name", name}, {"detail", QStringLiteral("nixpkgs#") + name}}));
-        m_nix.insert("programs", list);
-        emit changed();
-        emit toast(tr("%1 is installed. Open a new terminal to use it.").arg(name), QStringLiteral("ok"));
-        return;
-    }
-    runNix(QStringLiteral("nix"), {QStringLiteral("profile"), QStringLiteral("install"), QStringLiteral("nixpkgs#") + name},
-           tr("Installing %1… the first time downloads nixpkgs.").arg(name),
-           tr("%1 is installed. Open a new terminal to use it.").arg(name),
-           tr("%1 could not be installed. Check the name on search.nixos.org.").arg(name));
-}
-
-void DevEngine::nixRemove(const QString &name)
-{
-    if (m_demo) {
-        QVariantList list = m_nix.value("programs").toList();
-        list.erase(std::remove_if(list.begin(), list.end(), [&](const QVariant &v) { return v.toMap().value("name") == name; }), list.end());
-        m_nix.insert("programs", list);
-        emit changed();
-        emit toast(tr("%1 is removed.").arg(name), QStringLiteral("ok"));
-        return;
-    }
-    runNix(QStringLiteral("nix"), {QStringLiteral("profile"), QStringLiteral("remove"), name},
-           tr("Removing %1…").arg(name), tr("%1 is removed.").arg(name), tr("%1 could not be removed.").arg(name));
-}
-
-void DevEngine::nixUpgrade()
-{
-    if (m_demo) {
-        emit toast(tr("Your Nix programs are up to date."), QStringLiteral("ok"));
-        return;
-    }
-    runNix(QStringLiteral("nix"), {QStringLiteral("profile"), QStringLiteral("upgrade"), QStringLiteral("--all")},
-           tr("Updating your Nix programs…"), tr("Your Nix programs are up to date."), tr("Updating failed. Try again later."));
-}
-
-void DevEngine::nixClean()
-{
-    if (m_demo) {
-        emit toast(tr("Freed 1.2 GB of old program versions."), QStringLiteral("ok"));
-        return;
-    }
-    runNix(QStringLiteral("nix-collect-garbage"), {QStringLiteral("--delete-older-than"), QStringLiteral("30d")},
-           tr("Removing program versions older than 30 days…"), tr("Old program versions are removed."), tr("Cleaning up failed."));
 }
 
 void DevEngine::openUrl(const QString &url)
@@ -227,59 +122,7 @@ void DevEngine::openApp(const QString &command)
         emit toast(tr("Opens %1.").arg(parts.value(0)), QStringLiteral("info"));
 }
 
-// ───────────────────────────────────────────────────────────────────────── Android apps (Waydroid)
-//
-// The Waydroid program is in every image; Android itself (about 1 GB) is downloaded only when
-// someone sets it up. The root work runs in two small system units:
-//   asimaos-android-setup.service    `waydroid init`, then Android's container at every start
-//   asimaos-android-remove.service   stops the container and deletes Android and its data
-// Starting Android, opening it and installing an app file happen as you (waydroid session).
-
-namespace {
-const QString kAndroidConfig = QStringLiteral("/var/lib/waydroid/waydroid.cfg");
-const QString kSetupUnit = QStringLiteral("asimaos-android-setup.service");
-const QString kRemoveUnit = QStringLiteral("asimaos-android-remove.service");
-
-// ActiveState and Result of a system unit.
-QPair<QString, QString> unitState(const QString &unit)
-{
-    const QStringList l = Util::run(QStringLiteral("systemctl"), {QStringLiteral("show"), QStringLiteral("-P"), QStringLiteral("ActiveState"),
-                                                                  QStringLiteral("-P"), QStringLiteral("Result"), unit})
-                              .split(QLatin1Char('\n'));
-    return {l.value(0).trimmed(), l.value(1).trimmed()};
-}
-
-// Only NVIDIA graphics: Android draws in software there (slowly).
-bool softwareOnly()
-{
-    QStringList vendors;
-    const QDir drm(QStringLiteral("/sys/class/drm"));
-    for (const QString &card : drm.entryList({QStringLiteral("card*")}, QDir::Dirs | QDir::System)) {
-        if (card.contains(QLatin1Char('-')))
-            continue;
-        QFile f(drm.filePath(card + QStringLiteral("/device/vendor")));
-        if (f.open(QIODevice::ReadOnly))
-            vendors << QString::fromLatin1(f.readAll()).trimmed();
-    }
-    return !vendors.isEmpty() && std::all_of(vendors.begin(), vendors.end(), [](const QString &v) { return v == QLatin1String("0x10de"); });
-}
-} // namespace
-
-void DevEngine::readAndroid()
-{
-    const bool ready = QFileInfo::exists(kAndroidConfig);
-    const auto [setup, result] = unitState(kSetupUnit);
-    const QString removing = unitState(kRemoveUnit).first;
-    const bool settingUp = setup == QLatin1String("activating");
-    m_android = item({{"available", Util::has(QStringLiteral("waydroid"))}, {"ready", ready}, {"settingUp", settingUp},
-                      {"setupFailed", setup == QLatin1String("failed")
-                                          || (!result.isEmpty() && result != QLatin1String("success") && !settingUp && !ready)},
-                      {"removing", removing == QLatin1String("activating")}, {"softwareOnly", softwareOnly()},
-                      {"running", ready && Util::run(QStringLiteral("waydroid"), {QStringLiteral("status")}).contains(QLatin1String("RUNNING"))}});
-    // Setting up downloads about 1 GB: look again until it's done.
-    if (settingUp || m_android.value("removing").toBool())
-        QTimer::singleShot(5000, this, [this] { readAndroid(); emit changed(); });
-}
+// ───────────────────────────────────────────────────────────────────────── system units
 
 // Starts a system unit through systemd; polkit asks for the administrator's password first.
 void DevEngine::startUnit(const QString &unit, const QString &started)
@@ -301,77 +144,8 @@ void DevEngine::startUnit(const QString &unit, const QString &started)
             emit toast(started, QStringLiteral("info"));
         }
         // The unit needs a moment to switch to "activating".
-        QTimer::singleShot(800, this, [this] { readAndroid(); emit changed(); });
+        QTimer::singleShot(800, this, [this] { readPassthrough(); emit changed(); });
     });
-}
-
-void DevEngine::setDemoAndroid(const QString &state)
-{
-    m_android = item({{"available", true}, {"ready", state != QLatin1String("setup")}, {"settingUp", false},
-                      {"setupFailed", false}, {"removing", false}, {"softwareOnly", false},
-                      {"running", state != QLatin1String("setup")}});
-    emit changed();
-}
-
-void DevEngine::androidSetup()
-{
-    if (m_demo) {
-        m_android.insert("settingUp", true);
-        emit changed();
-        emit toast(tr("Downloading Android… this takes a few minutes."), QStringLiteral("info"));
-        return;
-    }
-    if (!Util::has(QStringLiteral("waydroid"))) {
-        emit toast(tr("Waydroid is not installed."), QStringLiteral("warn"));
-        return;
-    }
-    startUnit(kSetupUnit, tr("Downloading Android (about 1 GB). You can keep working."));
-}
-
-void DevEngine::androidRemove()
-{
-    if (m_demo) {
-        setDemoAndroid(QStringLiteral("setup"));
-        emit toast(tr("Android and its apps are removed."), QStringLiteral("ok"));
-        return;
-    }
-    QProcess::execute(QStringLiteral("waydroid"), {QStringLiteral("session"), QStringLiteral("stop")});
-    startUnit(kRemoveUnit, tr("Removing Android and its apps…"));
-}
-
-void DevEngine::androidOpen()
-{
-    // Starts Android (if needed) and shows its full screen; its apps also appear in the app menu.
-    if (m_demo || !QProcess::startDetached(QStringLiteral("waydroid"), {QStringLiteral("show-full-ui")}))
-        emit toast(tr("Opens Android."), QStringLiteral("info"));
-    m_android.insert("running", true);
-    emit changed();
-}
-
-void DevEngine::androidStop()
-{
-    if (!m_demo)
-        QProcess::startDetached(QStringLiteral("waydroid"), {QStringLiteral("session"), QStringLiteral("stop")});
-    m_android.insert("running", false);
-    emit changed();
-    emit toast(tr("Android is stopped. It starts again when you open an Android app."), QStringLiteral("ok"));
-}
-
-void DevEngine::androidInstall(const QUrl &apk)
-{
-    const QString file = apk.isLocalFile() ? apk.toLocalFile() : apk.toString();
-    if (m_demo) {
-        emit toast(tr("The app is installed. It's in your app menu."), QStringLiteral("ok"));
-        return;
-    }
-    auto *p = new QProcess(this);
-    connect(p, &QProcess::finished, this, [this, p](int code) {
-        emit toast(code == 0 ? tr("The app is installed. It's in your app menu.")
-                             : tr("The app could not be installed. Is Android running?"),
-                   code == 0 ? QStringLiteral("ok") : QStringLiteral("error"));
-        p->deleteLater();
-    });
-    p->start(QStringLiteral("waydroid"), {QStringLiteral("app"), QStringLiteral("install"), file});
 }
 
 // ───────────────────────────────────────────────────────────────────────── virtual machines

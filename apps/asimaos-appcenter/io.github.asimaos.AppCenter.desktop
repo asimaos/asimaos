@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Asima App Center
+GenericName=App Center
+Comment=Every kind of app for Linux in one place: Flatpak, Snap, AppImage, Android, Windows and developer tools
+Exec=asimaos-appcenter %f
+Icon=io.github.asimaos.AppCenter
+Terminal=false
+Categories=System;PackageManager;
+Keywords=apps;store;install;flatpak;flathub;snap;appimage;android;apk;windows;exe;wine;bottles;nix;homebrew;pipx;npm;cargo;conda;distrobox;
+MimeType=application/vnd.flatpak.ref;application/vnd.flatpak;application/vnd.snap;application/vnd.appimage;application/x-iso9660-appimage;application/vnd.android.package-archive;application/x-ms-dos-executable;application/x-msdownload;application/x-msi;application/x-ms-installer;
+StartupNotify=true

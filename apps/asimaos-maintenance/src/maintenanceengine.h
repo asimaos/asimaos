@@ -131,7 +131,6 @@ public:
     Q_INVOKABLE void startAsimaFirst();
     // Every setting back to this version's defaults at the next start (restarts the computer).
     Q_INVOKABLE void resetSettings();
-    Q_INVOKABLE void cleanFlatpak();
     Q_INVOKABLE void openApp(const QString &command);
 
     // Puts the demo into a state for screenshots: backup-tab, backup-setup, health-checking,

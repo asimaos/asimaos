@@ -385,10 +385,10 @@ start menu with `aosupd boot list --plain`, the same code as Asima Updater. What
 | Engine | In `/usr` | State | Out of the box |
 | --- | --- | --- | --- |
 | Flatpak | `flatpak`, `xdg-desktop-portal-kde` | `@flatpak` | Flathub set up, no apps installed |
-| AppImage | `fuse2`, `fuse3` | `@home` | Double-click to run |
+| AppImage | `fuse2`, `fuse3` | `@home` | Asima App Center keeps them in `~/Applications` with a menu entry (D56) |
 | Snap (D28) | `snapd` (pinned AUR revision, built in stage 12) with AppArmor profiles | `@var` | `snapd.socket` on, starts when first used |
-| Nix (D28) | Nix daemon, `@nix` mount | `@nix` | `nix-daemon.socket` on; Asima Dev → Nix programs |
-| Waydroid (D28) | `waydroid` | `@var` | Android is downloaded when set up in Asima Dev |
+| Nix (D28) | Nix daemon, `@nix` mount | `@nix` | `nix-daemon.socket` on; Asima App Center → Nix (D56) |
+| Waydroid (D28) | `waydroid` | `@var` | Android is downloaded when set up in Asima App Center (D56) |
 
 **KDE standard out of the box:** Plasma with System Settings, Discover (Flatpak only) with Flatpak
 permission settings, System Monitor, printing, Plasma Vault, remote desktop (KRdp) and the welcome

@@ -1,0 +1,18 @@
+#!/usr/bin/bash
+# Asima OS (D56): Homebrew on Linux lives in /home/linuxbrew/.linuxbrew, the place its prebuilt
+# programs are made for. Asima App Center sets it up once (asimaos-homebrew-setup@NAME.service,
+# after the administrator's password): the folder for that person, who owns it, then Homebrew
+# itself from its own Git repository, as that person.
+set -euo pipefail
+user=${1:?usage: asimaos-homebrew-setup NAME}
+uid=$(id -u "${user}") || { echo "asimaos-homebrew-setup: no account ${user}" >&2; exit 1; }
+(( uid >= 1000 )) || { echo "asimaos-homebrew-setup: ${user} isn't a person's account" >&2; exit 1; }
+P=/home/linuxbrew/.linuxbrew
+install -d -m 0755 -o "${user}" -g "$(id -gn "${user}")" /home/linuxbrew "${P}"
+if [[ ! -x ${P}/bin/brew ]]; then
+    rm -rf "${P}/Homebrew"
+    runuser -u "${user}" -- git clone --depth=1 -q https://github.com/Homebrew/brew "${P}/Homebrew"
+    runuser -u "${user}" -- mkdir -p "${P}/bin"
+    runuser -u "${user}" -- ln -sf ../Homebrew/bin/brew "${P}/bin/brew"
+fi
+echo "asimaos-homebrew-setup: Homebrew is in ${P}, for ${user}"
