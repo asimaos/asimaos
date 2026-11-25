@@ -815,7 +815,8 @@ def test_reset(version):
               and f"asimaos.version={version}" in out, out)
         out, _ = vm.run(f"dev=$(blkid -t PARTLABEL=crypt_pool -o device | head -n1); "
                         f"printf %s {PASSPHRASE} | cryptsetup open --test-passphrase --key-file=- \"$dev\" && echo OLD-WORKS; "
-                        f"printf %s {fresh_pass} | cryptsetup open --test-passphrase --key-file=- \"$dev\" && echo NEW-WORKS")
+                        f"printf %s {fresh_pass} | cryptsetup open --test-passphrase --key-file=- \"$dev\" && echo NEW-WORKS",
+                        300)   # two Argon2id tries of 1 GiB each: over a minute apiece in a VM on a small host
         check("the old disk passphrase no longer opens the disk; the new one does",
               "OLD-WORKS" not in out and "NEW-WORKS" in out, out)
         out, _ = vm.run("cat /etc/hostname; grep -c '^KEYMAP=us$' /etc/vconsole.conf; readlink /etc/localtime; "
