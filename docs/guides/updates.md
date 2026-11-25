@@ -25,5 +25,7 @@ never touches your files, apps or settings, and the version you had stays as the
 
 - Updates need about 10 GB free. Asima Maintenance → Overview shows the space.
 - An update file has an end date (about four months). After it, download a current one.
-- Updates from an older version jump straight to the newest one: no need to install every version
-  in between.
+- Updates jump straight to the newest version from any version of the past year: no need to
+  install every version in between. A computer more than a year behind updates with Asima Rescue
+  (Reinstall Asima OS) or with "Repair an installed Asima OS" on the USB stick; both keep your
+  files, apps and settings.

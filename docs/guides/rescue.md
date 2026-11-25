@@ -17,7 +17,15 @@ row, the backup starts by itself; Rescue is there for when that isn't enough.
 | Factory reset | Asima OS starts fresh with a new account |
 | Erase the whole disk | Everything on it, Asima OS included |
 
-If even Asima Rescue doesn't start, start the computer from the Asima OS USB stick and choose
-**Repair this computer**. It can also install the USB stick's version of Asima OS (answer yes
-when it asks): your files, apps and settings stay. Use that when updates stopped working, for
-example after the project changed its release key.
+If even Asima Rescue doesn't start, start the computer from the Asima OS USB stick, open
+**Install Asima OS** and choose **Repair an installed Asima OS**. Choose the disk (and type its
+passphrase or recovery key), then what the repair does:
+
+- **Put back the start-up** (always): the boot partition is checked, and the boot loader, each
+  version's boot image, Asima Rescue and the start menu are written again.
+- **Install the USB stick's version**: use it when updates stopped working, for example after the
+  project changed its release key, or when the computer is more than a year behind.
+- **Bring back the settings and accounts** from the newest snapshot; the ones there now are kept
+  aside on the disk, not deleted.
+
+Your files are never touched.
