@@ -3,7 +3,9 @@ FROM docker.io/archlinux/archlinux:base
 
 COPY pacman.conf /etc/pacman.conf
 
-# -Syuu syncs every package to the pinned snapshot (allows downgrades).
+# -Syuu syncs every package to the pinned snapshot (allows downgrades). build.sh mounts
+# build/pkgcache as pacman's cache, so what is downloaded once is kept: a build cut off by the
+# network goes on from there, and the stages use the same packages.
 RUN pacman -Syuu --noconfirm \
         arch-install-scripts \
         erofs-utils \
@@ -14,5 +16,4 @@ RUN pacman -Syuu --noconfirm \
         systemd-ukify \
         libisoburn \
         librsvg \
-        imagemagick \
-    && pacman -Scc --noconfirm
+        imagemagick

@@ -23,7 +23,7 @@ cp builder/pacman.conf build/pacman.conf
 
 if ! podman image exists "${IMAGE}"; then
     echo "==> Building builder image ${IMAGE}"
-    podman build -t "${IMAGE}" builder/
+    podman build -v "${PWD}/build/pkgcache:/var/cache/pacman/pkg:Z" -t "${IMAGE}" builder/
 fi
 
 # ASIMAOS_OFFLINE=1: when the Arch archive can't be reached, build from the packages an earlier
