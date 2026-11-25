@@ -12,7 +12,7 @@ DPage {
 
     readonly property var st: Backend.storage
     readonly property var areas: st.areas || []
-    readonly property real gb: 1024 * 1024 * 1024
+    readonly property real gb: 1e9      // as Theme.bytes shows sizes
     readonly property var sizes: [10, 25, 50, 100, 200, 500, 1000]
 
     function heading(a) {

@@ -37,7 +37,7 @@ DevEngine::DevEngine(bool demo, QObject *parent)
         readStorage();
         return;
     }
-    const auto gb = [](double n) { return n * 1024 * 1024 * 1024; };
+    const auto gb = [](double n) { return n * 1e9; };
     m_storage = item({{"available", true}, {"counted", true},
         {"areas", QVariantList{
             item({{"id", "containers:asha"}, {"person", "asha"}, {"separate", true}, {"used", gb(14.2)}, {"limit", gb(40)}}),
@@ -706,7 +706,8 @@ void DevEngine::readStorage()
 
 void DevEngine::setStorageLimit(const QString &area, double gb)
 {
-    const qulonglong bytes = gb <= 0 ? 0 : qulonglong(gb * 1024 * 1024 * 1024);
+    // GB as Asima UI shows sizes (1000-based).
+    const qulonglong bytes = gb <= 0 ? 0 : qulonglong(gb * 1e9);
     if (m_demo) {
         QVariantList areas = m_storage.value("areas").toList();
         for (QVariant &a : areas) {
