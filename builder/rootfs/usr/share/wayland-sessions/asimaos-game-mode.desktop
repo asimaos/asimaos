@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
 Name=Game mode (Steam)
-Comment=Steam's full-screen interface, like a games console. Leave it with Exit Steam.
+Comment=Steam's full-screen interface, like a games console. Leave it with Switch to Desktop.
 Exec=/usr/lib/asimaos/asimaos-game-session
-DesktopNames=KDE
+DesktopNames=gamescope

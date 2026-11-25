@@ -1,7 +1,23 @@
 #!/usr/bin/bash
-# Asima OS game mode: Steam's full-screen interface (Big Picture) is the whole session, on KWin
-# (KDE's compositor, with Xwayland for the games). Started from the login screen ("Game mode
-# (Steam)") or by itself at start-up when Asima Gaming → Handheld → Start in game mode is on.
-# When Steam ends (Power → Exit Steam), the session ends and the login screen comes back.
-export XDG_CURRENT_DESKTOP=KDE XDG_SESSION_DESKTOP=KDE KDE_SESSION_VERSION=6 XDG_SESSION_TYPE=wayland
+# Asima OS game mode (D46, D55): Steam's full-screen interface is the whole session, in gamescope,
+# Valve's games compositor as on SteamOS: games run full screen at the size Steam picks, with
+# Steam's quick-access menu for the frame limit and FSR upscaling. Started from the login screen
+# ("Game mode (Steam)") or by itself at start-up when Asima Gaming → Handheld → Start in game mode
+# is on. When Steam ends (Power → Switch to Desktop, or Exit Steam), the session ends and the
+# login screen comes back.
+#
+# Where gamescope can't drive the screen (a GPU or driver without the Vulkan it needs, so it stops
+# within seconds), the same session runs on KWin, KDE's compositor, instead.
+export XDG_SESSION_TYPE=wayland
+log() { echo "asimaos-game-session: $*" >&2; }
+
+if command -v gamescope >/dev/null; then
+    export XDG_CURRENT_DESKTOP=gamescope XDG_SESSION_DESKTOP=gamescope
+    start=${SECONDS}
+    gamescope --steam --fullscreen -- /usr/lib/asimaos/asimaos-game-steam gamescope
+    rc=$?
+    (( rc == 0 || SECONDS - start > 20 )) && exit "${rc}"
+    log "gamescope stopped at once (exit code ${rc}); game mode runs on KWin"
+fi
+export XDG_CURRENT_DESKTOP=KDE XDG_SESSION_DESKTOP=KDE KDE_SESSION_VERSION=6
 exec kwin_wayland --xwayland --no-lockscreen --exit-with-session=/usr/lib/asimaos/asimaos-game-steam

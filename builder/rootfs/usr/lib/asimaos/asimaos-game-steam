@@ -1,7 +1,19 @@
 #!/usr/bin/bash
-# Asima OS game mode's one program: Flatpak Steam in Big Picture. Without Steam, Discover opens
-# on its page; the session ends when that window closes.
-if flatpak info com.valvesoftware.Steam >/dev/null 2>&1; then
-    exec flatpak run com.valvesoftware.Steam -gamepadui
+# Asima OS game mode's one program: Flatpak Steam's full-screen interface. Without Steam, Discover
+# opens on its page; the session ends when that window closes.
+#
+# In gamescope ("asimaos-game-steam gamescope") Steam runs as on SteamOS (-steamos3), which turns
+# on gamescope's frame limit and upscaling in its quick-access menu and "Switch to Desktop" in its
+# power menu. SteamOS's own helpers don't exist in Steam's sandbox, so Asima OS lends it two:
+# steamos-session-select ends Steam (the login screen comes back to choose the desktop), and
+# steamos-update says there is nothing to update (Asima OS updates come from Asima Updater).
+if ! flatpak info com.valvesoftware.Steam >/dev/null 2>&1; then
+    exec plasma-discover appstream://com.valvesoftware.Steam
 fi
-exec plasma-discover appstream://com.valvesoftware.Steam
+if [[ ${1:-} == gamescope ]]; then
+    helpers=${XDG_RUNTIME_DIR}/asimaos-game-mode
+    rm -rf "${helpers}" && mkdir -p "${helpers}" && cp /usr/lib/asimaos/game-mode/* "${helpers}/"
+    exec flatpak run --filesystem=xdg-run/asimaos-game-mode:ro \
+        --env=PATH="/app/bin:/usr/bin:${helpers}" com.valvesoftware.Steam -gamepadui -steamos3
+fi
+exec flatpak run com.valvesoftware.Steam -gamepadui

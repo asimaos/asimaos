@@ -1,0 +1,4 @@
+#!/bin/sh
+# Asima OS game mode (run by Steam inside its sandbox): SteamOS's system updater. Asima OS updates
+# come from Asima Updater, so there is never one to install here (7: no update available).
+exit 7

@@ -86,6 +86,12 @@ void GamingEngine::applyServiceStatus(const QJsonObject &s)
     m_handheld.insert("gameMode", s.value("device").toObject().value("gameMode").toString() == qEnvironmentVariable("USER"));
     if (s.value("device").toObject().contains("rumble"))
         m_controllerOptions.insert("rumble", s.value("device").toObject().value("rumble").toInt());
+    // The handheld's built-in controller through InputPlumber (D55): which controller Steam and
+    // the games see, or nothing where InputPlumber doesn't manage one.
+    const QJsonObject controller = s.value("controller").toObject();
+    m_handheld.insert("controllerName", controller.value("name").toString());
+    m_handheld.insert("controller", controller.value("controller").toString());
+    m_handheld.insert("controllerDefault", controller.value("default").toString());
     const QJsonObject lighting = s.value("lighting").toObject();
     if (!lighting.isEmpty())
         m_lighting = lighting.toVariantMap();
@@ -122,8 +128,8 @@ void GamingEngine::loadDemo()
     m_handheld = item({
         {"supported", true}, {"family", "ally"}, {"preset", "balanced"}, {"tdp", 17}, {"tdpMin", 7}, {"tdpMax", 35},
         {"fan", "auto"}, {"fanModes", QVariantList{"auto", "max"}}, {"refresh", 120}, {"refreshOptions", QVariantList{60, 120}}, {"frameLimit", 0},
-        {"fsr", false}, {"desktopControls", true}, {"gyro", false}, {"gyroAvailable", true},
-        {"qam", "quick-menu"}, {"paddleLeft", "screenshot"}, {"paddleRight", "overlay"}, {"rotationSensor", true},
+        {"fsr", false}, {"desktopControls", true}, {"rotationSensor", true},
+        {"controllerName", "ASUS ROG Ally X"}, {"controller", "deck"}, {"controllerDefault", "xbox-elite"},
     });
     m_lighting = item({{"color", "#2F80ED"}, {"brightness", 70},
                        {"lights", QVariantList{item({{"name", tr("Joystick rings")}, {"device", "ROG Ally X"}}),
@@ -257,8 +263,7 @@ void GamingEngine::loadSystem()
                        {"tdpMin", 5}, {"tdpMax", 30}, {"fan", "auto"}, {"fanModes", QVariantList{}},
                        {"refresh", panel.current}, {"refreshOptions", panel.rates},
                        {"frameLimit", savedFrameLimit()}, {"fsr", overrides.contains(QLatin1String("WINE_FULLSCREEN_FSR=1"))},
-                       {"desktopControls", desktopControls}, {"gyro", false}, {"gyroAvailable", false},
-                       {"qam", "quick-menu"}, {"paddleLeft", "none"}, {"paddleRight", "none"},
+                       {"desktopControls", desktopControls}, {"controllerName", QString()},
                        {"rotationSensor", !QDir(QStringLiteral("/sys/bus/iio/devices")).entryList({QStringLiteral("iio:device*")}, QDir::AllEntries | QDir::System).isEmpty()}});
 
     readLive();
@@ -333,6 +338,8 @@ void GamingEngine::set(const QString &area, const QString &key, const QVariant &
                 emit toast(tr("Couldn't change the refresh rate."), QStringLiteral("error"));
                 return;
             }
+        } else if (m_service && area == QLatin1String("handheld") && key == QLatin1String("controller")) {
+            m_service->call(QStringLiteral("Set"), {area, key, QVariant::fromValue(QDBusVariant(value.toString()))});
         } else if (m_service && key == QLatin1String("gameMode")) {
             m_service->call(QStringLiteral("Set"), {QStringLiteral("gaming"), key, QVariant::fromValue(QDBusVariant(value.toBool()))});
         } else if (m_service && (key == QLatin1String("fan") || (area == QLatin1String("controllers") && key == QLatin1String("rumble")))) {

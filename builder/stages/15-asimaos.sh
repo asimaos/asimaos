@@ -121,6 +121,9 @@ with_root_mounts chroot "${ROOT}" systemctl enable \
 # Snap and Nix start when first used (D28). Waydroid's container starts once Android is set up
 # in Asima Dev (it downloads the Android system then).
 with_root_mounts chroot "${ROOT}" systemctl enable snapd.socket snapd.apparmor.service nix-daemon.socket
+# Handhelds' built-in controls (D55): InputPlumber manages only the handhelds its files name, and
+# Asima Gaming chooses which controller it shows to Steam and the games.
+with_root_mounts chroot "${ROOT}" systemctl enable inputplumber.service inputplumber-suspend.service
 # Virtual machines and containers for everyone (D26): libvirt starts when first used, and
 # Podman's Docker-compatible socket is there for IDEs and dev containers.
 with_root_mounts chroot "${ROOT}" systemctl enable \

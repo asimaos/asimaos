@@ -1,0 +1,4 @@
+#!/bin/sh
+# Asima OS game mode (run by Steam inside its sandbox): "Switch to Desktop" ends Steam, so the
+# game mode session ends and the login screen comes back, where the desktop is one choice.
+exec steam -shutdown

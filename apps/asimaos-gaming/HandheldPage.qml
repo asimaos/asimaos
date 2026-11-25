@@ -11,14 +11,6 @@ DPage {
 
     readonly property var h: Backend.handheld
     readonly property var win: B.ApplicationWindow.window
-    readonly property var buttonActions: [
-        { id: "none", title: qsTr("Nothing") },
-        { id: "quick-menu", title: qsTr("Asima Gaming quick menu") },
-        { id: "overlay", title: qsTr("Performance overlay") },
-        { id: "screenshot", title: qsTr("Screenshot") },
-        { id: "keyboard", title: qsTr("On-screen keyboard") },
-        { id: "desktop", title: qsTr("Switch to the desktop") }
-    ]
 
     // ── Power limit (TDP) ────────────────────────────────────────────────────
     Card {
@@ -158,7 +150,7 @@ DPage {
     Card {
         Layout.fillWidth: true
         title: qsTr("Game mode")
-        subtitle: qsTr("Steam's full-screen interface as the whole screen, like a games console. It's also on the login screen as “Game mode (Steam)”; Power → Exit Steam brings the login screen back.")
+        subtitle: qsTr("Steam's full-screen interface as the whole screen, like a games console, in gamescope as on SteamOS. It's also on the login screen as “Game mode (Steam)”; Power → Switch to Desktop brings the login screen back.")
         icon: "input-gamepad"
         tone: "accent"
         spacing: 0
@@ -192,40 +184,40 @@ DPage {
         icon: "input-gamepad"
         spacing: 0
 
-        // The extra buttons and the gyro need InputPlumber, which isn't in the image yet: hidden
-        // until they work.
-        ListRow {
-            visible: false
+        // The built-in controller through InputPlumber (D55): which controller Steam and the games
+        // see. Shown only where InputPlumber manages the built-in controls.
+        ColumnLayout {
+            visible: !!page.h.controllerName
             Layout.fillWidth: true
-            title: qsTr("Quick access button")
-            subtitle: qsTr("The small button next to the screen")
-            DComboBox {
-                implicitWidth: 260
-                model: page.buttonActions
-                Component.onCompleted: currentIndex = indexOfValue(page.h.qam)
-                onActivated: Backend.set("handheld", "qam", currentValue)
-            }
-        }
-        ListRow {
-            visible: false
-            Layout.fillWidth: true
-            title: qsTr("Left back button")
-            DComboBox {
-                implicitWidth: 260
-                model: page.buttonActions
-                Component.onCompleted: currentIndex = indexOfValue(page.h.paddleLeft)
-                onActivated: Backend.set("handheld", "paddleLeft", currentValue)
-            }
-        }
-        ListRow {
-            visible: false
-            Layout.fillWidth: true
-            title: qsTr("Right back button")
-            DComboBox {
-                implicitWidth: 260
-                model: page.buttonActions
-                Component.onCompleted: currentIndex = indexOfValue(page.h.paddleRight)
-                onActivated: Backend.set("handheld", "paddleRight", currentValue)
+            Layout.bottomMargin: 12
+            spacing: 8
+            UiText { text: qsTr("The built-in controls appear as"); font.weight: Font.Medium }
+            GridLayout {
+                Layout.fillWidth: true
+                columns: page.contentWidth > 820 ? 3 : 1
+                columnSpacing: 12
+                rowSpacing: 12
+                Repeater {
+                    model: [
+                        { id: "deck", title: qsTr("Steam Deck controller"),
+                          detail: qsTr("Steam sets up every button for each game: the back buttons, the quick-access button and aiming with motion (gyro)") },
+                        { id: "xbox-elite", title: qsTr("Xbox Elite controller"),
+                          detail: qsTr("Every game knows it; the back buttons are extra buttons") },
+                        { id: "ds5-edge", title: qsTr("DualSense Edge"),
+                          detail: qsTr("Motion and the touchpad for emulators and games with PlayStation controls") }
+                    ]
+                    delegate: SelectCard {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 1
+                        padding: 14
+                        title: modelData.title
+                        subtitle: modelData.id === page.h.controllerDefault ? qsTr("The default") : ""
+                        detail: modelData.detail
+                        selected: page.h.controller === modelData.id
+                        onToggled: Backend.set("handheld", "controller", modelData.id)
+                    }
+                }
             }
         }
         ListRow {
@@ -234,13 +226,6 @@ DPage {
             separator: !!page.h.rotationSensor
             subtitle: qsTr("Right stick: pointer; triggers: click; left stick: scroll. Paused while Steam or a game runs.")
             DSwitch { checked: !!page.h.desktopControls; onToggled: Backend.set("handheld", "desktopControls", checked) }
-        }
-        ListRow {
-            Layout.fillWidth: true
-            visible: false
-            title: qsTr("Aim with motion (gyro)")
-            subtitle: qsTr("Tilt the handheld to fine-tune aim in games that support it")
-            DSwitch { checked: !!page.h.gyro; onToggled: Backend.set("handheld", "gyro", checked) }
         }
         // Plasma owns screen rotation (its display settings): this opens it there.
         ListRow {

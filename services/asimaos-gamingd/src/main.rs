@@ -9,6 +9,7 @@
 //!   asimaos-gamingd --session --root DIR   test mode: session bus, no polkit, a scratch system tree
 
 mod device;
+mod inputplumber;
 mod lighting;
 mod mouse;
 
@@ -64,12 +65,20 @@ fn save_scheduler(root: &Root, name: &str) -> anyhow::Result<()> {
 #[interface(name = "io.github.asimaos.Gaming1")]
 impl Gaming {
     /// What this device can do and its current values, as JSON. No password needed.
-    async fn status(&self) -> String {
-        json!({ "contract": asimaos_svc::CONTRACT, "managed": true, "device": device::status(&self.root), "lighting": lighting::status(&self.root) })
-            .to_string()
+    async fn status(&self, #[zbus(connection)] conn: &Connection) -> String {
+        json!({
+            "contract": asimaos_svc::CONTRACT,
+            "managed": true,
+            "device": device::status(&self.root),
+            "lighting": lighting::status(&self.root),
+            // The handheld's built-in controller through InputPlumber (D55), or null.
+            "controller": inputplumber::status(&self.root, conn).await,
+        })
+        .to_string()
     }
 
-    /// area/key = handheld/tdp (int W), handheld/fan ("auto" | "max"), controllers/rumble (0–100 %),
+    /// area/key = handheld/tdp (int W), handheld/fan ("auto" | "max"), handheld/controller (the
+    /// built-in controller as "deck" | "xbox-elite" | "ds5-edge"), controllers/rumble (0–100 %),
     /// gaming/scheduler ("lavd" | "bpfland" | "default") or lighting/color ("#RRGGBB:percent", 0 %
     /// turns the lights off).
     async fn set(
@@ -96,6 +105,9 @@ impl Gaming {
             }
             ("handheld", "fan", zvariant::Value::Str(mode)) => {
                 device::set_fan(&self.root, mode.as_str()).map_err(failed)?
+            }
+            ("handheld", "controller", zvariant::Value::Str(kind)) => {
+                inputplumber::set_controller(&self.root, conn, kind.as_str()).await.map_err(failed)?
             }
             ("controllers", "rumble", v) => {
                 let pct = match v {
