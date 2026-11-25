@@ -42,8 +42,9 @@ version that doesn't start goes back to the one before it by itself.
 - **Asima OS apps, one job each.** Asima Updater, Asima Maintenance, Asima Manager, Asima Gaming
   and Asima Dev, plus the installer and Asima Rescue: Qt 6 apps, each with its own Rust system
   service. The `asimaos` command does the same jobs in a terminal.
-- **Plain KDE.** The desktop is KDE Plasma with its standard look, and the start-up screen is
-  KDE's own, asking for the disk passphrase in your keyboard layout.
+- **Plain KDE.** The desktop is KDE Plasma with its standard look, everything you can change in
+  System Settings included. Asima OS's own design is only where nothing needs changing: the
+  start-up screen, which asks for the disk passphrase in your keyboard layout, and the Asima apps.
 - **Your finger or face, when you choose.** The Asima OS password dialog approves admin tasks with a
   fingerprint or a face when you tap its button; a normal webcam can unlock the screen once you
   switch it on.

@@ -13,4 +13,6 @@ RUN pacman -Syuu --noconfirm \
         mtools \
         systemd-ukify \
         libisoburn \
+        librsvg \
+        imagemagick \
     && pacman -Scc --noconfirm

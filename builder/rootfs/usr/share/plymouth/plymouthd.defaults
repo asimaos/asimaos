@@ -1,0 +1,5 @@
+# Asima OS: the start-up screen is part of the read-only image (D51), like this choice of it.
+[Daemon]
+Theme=asimaos
+ShowDelay=0
+DeviceTimeout=8

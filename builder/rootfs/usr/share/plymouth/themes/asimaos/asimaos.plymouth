@@ -1,0 +1,38 @@
+# The Asima OS start-up screen (D51): the mark and the name in the middle, a spinner below, and the
+# disk passphrase asked there, with the keyboard layout and Caps Lock shown. Part of the read-only
+# image; stage 15 adds the mark (drawn from apps/ui/assets/asimaos-mark.svg) and Plymouth's own
+# spinner, passphrase-box and hint images.
+[Plymouth Theme]
+Name=Asima OS
+Description=The Asima OS start-up screen
+ModuleName=two-step
+
+[two-step]
+Font=Noto Sans 12
+TitleFont=Noto Sans Light 30
+MonospaceFont=Noto Sans Mono 12
+ImageDir=/usr/share/plymouth/themes/asimaos
+WatermarkHorizontalAlignment=.5
+WatermarkVerticalAlignment=.42
+HorizontalAlignment=.5
+VerticalAlignment=.72
+DialogHorizontalAlignment=.5
+DialogVerticalAlignment=.72
+TitleHorizontalAlignment=.5
+TitleVerticalAlignment=.382
+Transition=none
+TransitionDuration=0.0
+BackgroundStartColor=0x0e1015
+BackgroundEndColor=0x101a2c
+ProgressBarBackgroundColor=0x262c37
+ProgressBarForegroundColor=0x0a6cd6
+MessageBelowAnimation=true
+
+[boot-up]
+UseEndAnimation=false
+
+[shutdown]
+UseEndAnimation=false
+
+[reboot]
+UseEndAnimation=false

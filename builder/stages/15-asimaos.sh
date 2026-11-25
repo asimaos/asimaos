@@ -143,16 +143,26 @@ EOF
 # DNS through systemd-resolved: /etc/resolv.conf never changes, so it never shows up as a
 # changed /etc file in Asima Maintenance.
 ln -sfn ../run/systemd/resolve/stub-resolv.conf "${ROOT}/etc/resolv.conf"
-# The start-up screen: KDE's Breeze theme as Arch ships it (D48), which asks for the disk passphrase;
-# Esc shows the messages. The desktop keeps KDE's own look: nothing is set for it here. The
-# plymouth initramfs hook (stage 20) copies the theme named here.
-[[ -f ${ROOT}/usr/share/plymouth/themes/breeze/breeze.plymouth ]] || die "breeze-plymouth is not installed"
-install -Dm0644 /dev/stdin "${ROOT}/etc/plymouth/plymouthd.conf" <<'EOF'
-[Daemon]
-Theme=breeze
-ShowDelay=0
-DeviceTimeout=8
-EOF
+# The start-up screen: Asima OS's own (D51), in the read-only image like its choice
+# (/usr/share/plymouth/plymouthd.defaults, builder/rootfs); it asks for the disk passphrase, Esc
+# shows the messages. The desktop keeps KDE's own look: nothing is set for it here. The plymouth
+# initramfs hook (stage 20) copies the theme, with its font.
+T="${ROOT}/usr/share/plymouth/themes/asimaos" S="${ROOT}/usr/share/plymouth/themes/spinner"
+[[ -f ${T}/asimaos.plymouth && -f ${S}/entry.png ]] || die "the start-up theme or Plymouth's spinner images are missing"
+# The spinner, the passphrase box, the lock, and the Caps Lock and keyboard-layout hints: Plymouth's own.
+cp "${S}"/throbber-*.png "${S}"/animation-*.png "${S}"/{bullet,capslock,entry,keyboard,keymap-render,lock}.png "${T}/"
+# The mark and the name in the middle, drawn at every build from the one mark (D20).
+font=""
+for f in NotoSans-SemiBold NotoSans-Medium NotoSans-Regular 'NotoSans*'; do
+    font=$(find "${ROOT}/usr/share/fonts" -name "${f}.ttf" -print -quit)
+    [[ -n ${font} ]] && break
+done
+[[ -n ${font} ]] || die "Noto Sans is not in the image (noto-fonts)"
+rsvg-convert -w 128 -h 128 "${WORK}/apps/ui/assets/asimaos-mark.svg" -o "${BUILD}/start-up-mark.png"
+magick -background none "${BUILD}/start-up-mark.png" -size 1x22 xc:none +size \
+    -fill '#EDF0F5' -font "${font}" -pointsize 34 label:"${ASIMAOS_NAME}" \
+    -gravity center -append +repage "${T}/watermark.png"
+rm -f "${BUILD}/start-up-mark.png"
 # Nix (D28): the "nix profile" commands Asima Dev uses, and flakes, without extra setup.
 if [[ -f ${ROOT}/etc/nix/nix.conf ]] && ! grep -q '^experimental-features' "${ROOT}/etc/nix/nix.conf"; then
     printf '\n# Asima OS: the modern nix commands (nix profile, flakes), as Asima Dev uses them.\nexperimental-features = nix-command flakes\n' \

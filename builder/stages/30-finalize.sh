@@ -7,8 +7,8 @@ echo "root:${ASIMAOS_TEST_ROOT_PASSWORD}" | with_root_mounts chroot "${ROOT}" ch
 
 step "Stamping /usr/lib/os-release (IMAGE_VERSION=${V})"
 cat > "${ROOT}/usr/lib/os-release" <<EOF
-NAME="Asima OS"
-PRETTY_NAME="Asima OS"
+NAME="${ASIMAOS_NAME}"
+PRETTY_NAME="${ASIMAOS_NAME}"
 VERSION="${V} (${ASIMAOS_RELEASE})"
 ID=asimaos
 ID_LIKE=arch

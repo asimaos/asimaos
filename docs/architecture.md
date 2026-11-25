@@ -137,7 +137,7 @@ systemd-boot (signed) → start menu: Asima OS (current) · Asima OS (backup) ·
         ▼
 Signed UKI = kernel + initramfs + CPU microcode + command line (with the /usr verity hash)
         ▼
-Plymouth: KDE's Breeze start-up screen; the disk passphrase asked on it (D48)
+Plymouth: the Asima OS start-up screen; the disk passphrase asked on it (D51)
         ▼
 Unlock the pool: TPM2 (systemd-pcrlock policy: PCR 4 + 7; optionally + a PIN, D49) → passphrase → 64-character recovery key
         ▼
@@ -346,7 +346,7 @@ start menu with `aosupd boot list --plain`, the same code as Asima Updater. What
 
 | Area | Packages |
 | --- | --- |
-| Boot, crypto, filesystems | systemd, Arch `linux` (D23), plymouth with KDE's Breeze theme (breeze-plymouth, D48), zram-generator, mkinitcpio, btrfs-progs, cryptsetup, erofs-utils, dosfstools, exfatprogs, mokutil, gnupg, tpm2-tss, tpm2-tools, nvme-cli, amd-ucode, intel-ucode (loaded early by the `microcode` initramfs hook), sudo |
+| Boot, crypto, filesystems | systemd, Arch `linux` (D23), plymouth with the Asima OS start-up theme (D51; Plymouth's two-step module and images), zram-generator, mkinitcpio, btrfs-progs, cryptsetup, erofs-utils, dosfstools, exfatprogs, mokutil, gnupg, tpm2-tss, tpm2-tools, nvme-cli, amd-ucode, intel-ucode (loaded early by the `microcode` initramfs hook), sudo |
 | Hardware, audio, security, power | linux-firmware, pipewire (+ pulse, alsa, jack), wireplumber, rtkit, sof-firmware, apparmor, nftables, networkmanager (DNS through systemd-resolved), bluez, fwupd, power-profiles-daemon, upower, ddcutil, i2c-tools, fprintd, v4l-utils, cups + cups-browsed + avahi |
 | Graphics | mesa, vulkan-radeon, vulkan-intel, intel-media-driver; nvidia-open (prebuilt by Arch), nvidia-utils, nvidia-prime, switcheroo-control |
 | Gaming plumbing | ntsync, gamemode (with Asima OS's hook that pauses the controller mouse during a game), scx-scheds + scx-tools (`scx_loader`, `scx_lavd` in gaming mode from the start, D44), Asima OS's uinput and controller rules (`70-asimaos-gaming.rules`, D26) |
