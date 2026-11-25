@@ -32,7 +32,7 @@ each version changed: [CHANGELOG](../CHANGELOG.md).
 - The firmware's list of revoked boot programs (dbx) updated from Asima Maintenance, with TPM
   unlock kept working across it.
 - Signed system extensions (`systemd-sysext`, signed images only).
-- Extra kernel modules (vhba, v4l2loopback, xpadneo, xone with xpad-noone), built against the
+- Extra kernel modules (vhba, v4l2loopback, xpadneo, xone for the Xbox Wireless Adapter), built against the
   exact kernel and signed with the OS; game controllers of every kind (XInput and DirectInput, wired,
   Bluetooth and wireless receivers, the Xbox Wireless Adapter with its firmware from Microsoft on
   request).

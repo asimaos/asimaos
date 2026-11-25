@@ -6,11 +6,9 @@
 #                 vhba-module-dkms
 #   xpadneo       Xbox controllers over Bluetooth (every button, rumble, battery), from its source
 #                 at a pinned release (ASIMAOS_XPADNEO)
-#   xone          Xbox One and Series controllers and accessories over USB, and the Xbox Wireless
-#                 Adapter (its firmware is Microsoft's: Asima Gaming fetches it when one is plugged in)
-#   xpad          xpad-noone: the kernel's xpad without the Xbox One part, in its place, so Xbox 360
-#                 and original Xbox controllers (wired and the 360 wireless receiver) keep working
-#                 next to xone
+#   xone          Microsoft's Xbox Wireless Adapter and what pairs with it (controllers, headsets,
+#                 chatpads), its adapter part only: wired controllers stay with the kernel's own
+#                 xpad. The adapter's firmware is Microsoft's: Asima Gaming fetches it when asked.
 # The kernel headers and build tools live only in this throw-away container, from the same
 # archive snapshot as the image, so they are the image kernel's own.
 source /work/builder/stages/common.sh
@@ -37,18 +35,18 @@ fetch() {  # NAME "URL COMMIT TAG": the source at exactly that commit
 }
 fetch xpadneo "${ASIMAOS_XPADNEO}"
 fetch xone "${ASIMAOS_XONE}"
-fetch xpad-noone "${ASIMAOS_XPAD_NOONE}"
 
 step "Building them for ${KVER}"
 make -s -C "${KDIR}" M="${SRC}/v4l2loopback" -j"$(nproc)" modules
 make -s -C "${KDIR}" M="${SRC}/vhba" -j"$(nproc)" modules
 make -s -C "${SRC}/xpadneo/hid-xpadneo" KERNEL_SOURCE_DIR="${KDIR}" -j"$(nproc)" modules
 make -s -C "${KDIR}" M="${SRC}/xone" -j"$(nproc)" modules
-make -s -C "${KDIR}" M="${SRC}/xpad-noone" -j"$(nproc)" modules
+# xone's wired driver is left out: the kernel's xpad keeps wired Xbox One and Series controllers.
+rm -f "${SRC}/xone/xone_wired.ko"
 
 step "Signing and installing them (updates/asimaos)"
 for ko in "${SRC}/v4l2loopback/v4l2loopback.ko" "${SRC}/vhba/vhba.ko" "${SRC}/xpadneo/hid-xpadneo/src/hid-xpadneo.ko" \
-          "${SRC}"/xone/xone_*.ko "${SRC}/xpad-noone/xpad.ko"; do
+          "${SRC}"/xone/xone_*.ko; do
     [[ -f ${ko} ]] || die "${ko##*/} was not built"
     strip --strip-debug "${ko}"
     zstd -q -19 -f "${ko}" -o "${DEST}/${ko##*/}.zst"
@@ -61,12 +59,15 @@ install -Dm0644 "${SRC}/xpadneo/hid-xpadneo/etc-modprobe.d/xpadneo.conf" "${ROOT
 for r in "${SRC}"/xpadneo/hid-xpadneo/etc-udev-rules.d/*.rules; do
     install -Dm0644 "${r}" "${ROOT}/usr/lib/udev/rules.d/${r##*/}"
 done
-# xone's own install blacklists xpad and the Wi-Fi driver mt76x2u. Here xpad is xpad-noone, which
-# leaves Xbox One devices to xone, and only the Xbox Wireless Adapter is taken from mt76x2u (which
-# knows its chip): USB Wi-Fi sticks with that chip keep working (udev/70-asimaos-controllers.rules).
+# xone's own install blacklists xpad and the Wi-Fi driver mt76x2u. Neither is needed here: without
+# xone's wired driver, xpad and xone never meet, and only the Xbox Wireless Adapter is taken from
+# mt76x2u (which knows its chip), so USB Wi-Fi sticks with that chip keep working
+# (udev/70-asimaos-controllers.rules).
 with_root_mounts chroot "${ROOT}" depmod "${KVER}"
-for m in v4l2loopback vhba hid_xpadneo xone_gip xone_wired xone_dongle xone_gip_gamepad xpad; do
+for m in v4l2loopback vhba hid_xpadneo xone_gip xone_dongle xone_gip_gamepad; do
     with_root_mounts chroot "${ROOT}" modinfo -k "${KVER}" -F sig_id "${m}" | grep PKCS >/dev/null || die "${m} is not signed"
 done
-with_root_mounts chroot "${ROOT}" modinfo -k "${KVER}" -n xpad | grep /updates/asimaos/ >/dev/null || die "xpad is still the kernel's own, not xpad-noone"
+with_root_mounts chroot "${ROOT}" modinfo -k "${KVER}" -n xpad | grep /kernel/drivers/input/joystick/ >/dev/null \
+    || die "xpad isn't the kernel's own"
+[[ ! -e ${DEST}/xone_wired.ko.zst ]] || die "xone's wired driver must not be installed"
 rm -rf "${SRC}"

@@ -434,18 +434,20 @@ scrub, balance and SSD jobs are `/usr/lib/asimaos/asimaos-maintenance` and write
 **Extra kernel modules (D55, stage 16):** v4l2loopback (one virtual camera, which video apps see
 only while a program such as OBS Studio sends to it; it loads at start-up), vhba with CDEmu
 (virtual CD/DVD drives for disc images, for older games; for the person at the computer),
-xpadneo, xone and xpad-noone (below). They are built against the image's own kernel with the same
+xpadneo and xone's adapter part (below). They are built against the image's own kernel with the same
 snapshot's `linux-headers`, which only the build container gets, and signed with the build's
 Secure Boot key like NVIDIA's, so they load under lockdown too.
 
-**Game controllers of every kind (D55):** XInput controllers and 2.4 GHz receivers (`xpad`, here
-xpad-noone in place of the kernel's: Xbox 360 and original Xbox, wired and through the 360
-receiver; XInput devices it doesn't know by ID are taught to it by `70-asimaos-controllers.rules`
-from their USB interface, class ff/5d/01); Xbox One and Series controllers and accessories over
-USB, and Microsoft's Xbox Wireless Adapter (`xone`; the adapter is taken from the Wi-Fi driver
-`mt76x2u`, which knows its chip, by that rule alone, so USB Wi-Fi sticks with the chip keep their
-driver); Xbox controllers over Bluetooth (`xpadneo`); PlayStation, Nintendo and DirectInput
-controllers (the kernel's `hid-playstation`, `hid-nintendo`, `hid-generic`). The adapter's firmware
+**Game controllers of every kind (D55):** every wired controller and 2.4 GHz receiver that speaks
+XInput, Xbox 360, Xbox One and Series ones included, has the kernel's own `xpad` (XInput devices
+it doesn't know by ID are taught to it by `70-asimaos-controllers.rules` from their USB interface,
+class ff/5d/01); Microsoft's Xbox Wireless Adapter and what pairs with it has `xone`, its adapter
+part only (`xone_dongle` and the `xone_gip` drivers; its wired driver is left out, so `xpad` and
+`xone` never meet, and if `xone` ever stops building on a new kernel, only the adapter is
+affected; the adapter is taken from the Wi-Fi driver `mt76x2u`, which knows its chip, by that rule
+alone, so USB Wi-Fi sticks with the chip keep their driver); Xbox controllers over Bluetooth have
+`xpadneo`; PlayStation, Nintendo and DirectInput controllers the kernel's `hid-playstation`,
+`hid-nintendo` and `hid-generic`. The adapter's firmware
 is Microsoft's: Asima Gaming downloads it from Windows Update when the person asks (the files and
 SHA-256 sums xone's own install uses) into `/var/lib/asimaos/firmware`, where the kernel also looks
 (`firmware_class.path` on the boot image's command line).

@@ -1,0 +1,14 @@
+# Asima OS (D55): game controllers of every kind, wired, through a wireless receiver or over
+# Bluetooth. The drivers: the kernel's xpad for XInput controllers and receivers (Xbox 360, One
+# and Series ones included), xone's adapter part for Microsoft's Xbox Wireless Adapter, xpadneo
+# for Xbox controllers over Bluetooth, the kernel's own for PlayStation, Nintendo and DirectInput
+# controllers.
+
+# The Xbox Wireless Adapter belongs to xone. The Wi-Fi driver mt76x2u knows its chip and may take
+# it first; only this adapter is moved, so USB Wi-Fi sticks with the same chip keep their driver.
+ACTION=="add|bind", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_interface", DRIVER=="mt76x2u", ATTRS{idVendor}=="045e", ATTRS{idProduct}=="02e6|02fe|02f9|091e", RUN+="/usr/lib/asimaos/asimaos-controller-bind adapter %k"
+
+# XInput controllers and 2.4 GHz receivers that xpad doesn't know by ID: they say what they are
+# in their USB interface (vendor class ff, subclass 5d, protocol 01 for a controller, 81 for a
+# wireless receiver), and xpad learns their ID.
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_interface", ATTR{bInterfaceClass}=="ff", ATTR{bInterfaceSubClass}=="5d", ATTR{bInterfaceProtocol}=="01|81", RUN+="/usr/lib/asimaos/asimaos-controller-bind xinput %k $attr{../idVendor} $attr{../idProduct}"
