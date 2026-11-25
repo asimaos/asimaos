@@ -115,11 +115,12 @@ repository.
 | [Guides](docs/guides/README.md) | For people who use it: installing, the key approval, the recovery key, updates, Rescue, testing updates |
 | [Changelog](CHANGELOG.md) | What each version changed |
 | [Contributing](CONTRIBUTING.md) | How to build, test and send changes |
+| [Credits](CREDITS.md) | The projects Asima OS is built from, and the help it had |
 
 ## Related
 
-- [Asima Hub](https://github.com/asimaos/asimaos-hub): the online app (news, downloads, the USB stick,
-  updates); a Flatpak, never part of the system.
+- [Asima Hub](https://github.com/asimaos/asimaos-hub): news, downloads, the USB stick and the OS's
+  updates; a Flatpak, never part of the system.
 - [The website](https://asimaos.pages.dev/) ([source](https://github.com/asimaos/asimaos-website)): guides,
   downloads and news.
 
