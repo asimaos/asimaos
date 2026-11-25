@@ -579,7 +579,7 @@ DPage {
                 Layout.fillWidth: true
                 iconName: "security-high"
                 title: qsTr("Revoked boot programs")
-                subtitle: qsTr("The firmware's list of boot programs no one may start (dbx) comes as a firmware update")
+                subtitle: qsTr("The firmware's list of boot programs no one may start (dbx) comes as a firmware update. Automatic unlock follows it by itself.")
                 separator: false
                 DButton { text: qsTr("Firmware updates"); variant: "ghost"; onClicked: Backend.openApp("plasma-discover --mode update") }
             }
@@ -591,6 +591,6 @@ DPage {
         Layout.fillWidth: true
         tone: "warn"
         title: qsTr("Before updating your BIOS")
-        text: qsTr("A BIOS or Secure Boot database update can stop automatic unlock from working once. Keep your recovery key ready; Asima Maintenance sets automatic unlock up again afterwards.")
+        text: qsTr("A BIOS update can stop automatic unlock from working once. Keep your recovery key ready; Asima Maintenance sets automatic unlock up again afterwards. Updates of the Secure Boot databases (from Discover) don't need this: automatic unlock follows them by itself.")
     }
 }

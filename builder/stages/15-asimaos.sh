@@ -117,7 +117,8 @@ with_root_mounts chroot "${ROOT}" systemctl enable \
     asimaos-snapshot.timer asimaos-backup.timer asimaos-scrub.timer asimaos-balance.timer asimaos-ssd-audit.timer \
     thermald.service var-cache.mount var-cache-apparmor.mount asimaos-keyboard-sync.path asimaos-keyboard-sync.service \
     systemd-pstore.service asimaos-passthrough-bind.service asimaos-battery.service \
-    asimaos-reset-settings.service asimaos-nvidia-flatpak.service asimaos-tpm-rotation.service asimaos-face-sync.service
+    asimaos-reset-settings.service asimaos-nvidia-flatpak.service asimaos-tpm-rotation.service asimaos-face-sync.service \
+    asimaos-secureboot-db.path
 # Snap and Nix start when first used (D28). Waydroid's container starts once Android is set up
 # in Asima Dev (it downloads the Android system then).
 with_root_mounts chroot "${ROOT}" systemctl enable snapd.socket snapd.apparmor.service nix-daemon.socket

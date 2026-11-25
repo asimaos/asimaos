@@ -164,7 +164,10 @@ asimaos-early-mount → /usr (verified) · /etc · /var → switch root → KDE 
   (earlier builds', or another system's) and retires the chosen ones: `mokutil --delete` and
   `mokutil --mokx --import`, both with one one-time code, so nothing signed with them starts again.
   The firmware's own revocation list (`dbx`) is updated by fwupd, as a firmware update in Discover;
-  Asima Updater checks a new shim against it (above).
+  Asima Updater checks a new shim against it (above). TPM unlock follows it (D55):
+  `asimaos-secureboot-db.path` sees fwupd write `dbx`, `db` or `KEK` and brings the pcrlock policy
+  up to date at once (`asimaos-pcrlock refresh`), so the next start, which measures the new
+  databases into PCR 7, still unlocks.
 - **Signing:** `ukify build --signtool=systemd-sbsign --sign-kernel` signs every UKI (also the live
   and Rescue ones); `systemd-sbsign` signs systemd-boot. The UKIs carry no signed PCR policy: TPM
   unlock uses systemd-pcrlock (D43, below).

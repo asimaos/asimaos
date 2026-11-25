@@ -1,0 +1,11 @@
+# Asima OS: the TPM unlock policy for the Secure Boot databases as they are now (see
+# asimaos-secureboot-db.path). Only where TPM unlock uses a systemd-pcrlock policy.
+[Unit]
+Description=Asima OS: TPM unlock for the new Secure Boot databases
+ConditionPathExists=/var/lib/systemd/pcrlock.json
+
+[Service]
+Type=oneshot
+# The ESP at /boot, in this unit's own mount namespace only.
+PrivateMounts=yes
+ExecStart=/usr/lib/asimaos/asimaos-esp /usr/lib/asimaos/asimaos-pcrlock refresh

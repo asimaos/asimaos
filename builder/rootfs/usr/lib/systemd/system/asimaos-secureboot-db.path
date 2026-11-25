@@ -1,0 +1,16 @@
+# Asima OS: TPM unlock follows the Secure Boot databases (D43, D55). fwupd (Discover's firmware
+# updates) writes a new list of revoked boot programs (dbx) or new certificates (db, KEK) into the
+# firmware at once, and the next start measures them (PCR 7): the pcrlock policy is brought up to
+# date right away, so automatic unlock keeps working after that start.
+[Unit]
+Description=Asima OS: watch the Secure Boot databases for TPM unlock
+ConditionKernelCommandLine=!asimaos.live
+
+[Path]
+PathChanged=/sys/firmware/efi/efivars/dbx-d719b2cb-3d3a-4596-a3bc-dad00e67656f
+PathChanged=/sys/firmware/efi/efivars/db-d719b2cb-3d3a-4596-a3bc-dad00e67656f
+PathChanged=/sys/firmware/efi/efivars/KEK-8be4df61-93ca-11d2-aa0d-00e098032b8c
+Unit=asimaos-secureboot-db.service
+
+[Install]
+WantedBy=multi-user.target
