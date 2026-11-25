@@ -93,7 +93,7 @@ check "an older version is refused"              '[[ $V == *"\\\"ok\\\":false"* 
 V=$(call VerifyUpdate h 3 3<"$T/cut.aosupd")
 check "a cut-off download is refused at once"    '[[ $V == *"\\\"ok\\\":false"* && $V == *"incomplete"* && $V == *"\\\"refused\\\":\\\"damaged\\\""* ]]'
 V=$(call VerifyUpdate h 3 3<"$T/later.aosupd")
-check "MIN_FROM is enforced"                     '[[ $V == *"\\\"ok\\\":false"* && $V == *"needs Asima OS 2026.11.30.1"* && $V == *"\\\"min-from\\\""* ]]'
+check "MIN_FROM is enforced"                     '[[ $V == *"\\\"ok\\\":false"* && $V == *"installs on Asima OS 2026.11.30.1 or newer"* && $V == *"\\\"min-from\\\""* ]]'
 V=$(call VerifyUpdate h 3 3<"$T/flipped.aosupd")
 check "a damaged part is caught before writing"  '[[ $V == *"\\\"ok\\\":false"* && $V == *"damaged"* && $V == *"\\\"signature\\\":true"* && $V == *"\\\"refused\\\":\\\"damaged\\\""* ]]'
 
@@ -104,7 +104,7 @@ check "a damaged update changes nothing"         '[[ ! -e $SLOTS/usr_2026.12.01.
 J=$(call ApplyUpdate h 3 3<"$T/good.aosupd")
 check "ApplyUpdate starts a job"                 '[[ $J == *update-* ]]'
 waitfor '[[ $(role current) == 2026.12.01.1 && ! -e $SLOTS/usr_2026.11.01.2.erofs ]]'
-check "the image and verity data are in the slots" '[[ $(head -c 31 $SLOTS/usr_2026.12.01.1.erofs) == "Asima OS 2026.12.01.1 sy" && -s $SLOTS/verity_2026.12.01.1.img ]]'
+check "the image and verity data are in the slots" '[[ $(head -n1 $SLOTS/usr_2026.12.01.1.erofs) == "Asima OS 2026.12.01.1 system files" && -s $SLOTS/verity_2026.12.01.1.img ]]'
 check "…and a copy of its boot image (for repairs)" '[[ $(sha256sum < $SLOTS/boot/asimaos_2026.12.01.1.efi) == $(sha256sum < $ESP/EFI/Asima/asimaos_2026.12.01.1.efi) ]]'
 check "start menu: new = current with 3 tries"   '[[ $(entry current) == asimaos-current+3-0.conf && -s $ESP/EFI/Asima/asimaos_2026.12.01.1.efi ]]'
 check "…the running version = backup, on top second" '[[ $(role backup) == 2026.11.15.1 ]] && grep -q "Asima OS 2026.11.15.1 (backup)" $ESP/loader/entries/asimaos-backup.conf'
@@ -170,8 +170,8 @@ call ReinstallVersion h 3 3<"$T/good.aosupd" >/dev/null 2>&1
 check "reinstalling another version is refused"  '[[ $? -ne 0 && $(role current) == 2026.12.15.1 ]]'
 echo damaged > "$SLOTS/usr_2026.12.15.1.erofs"
 J=$(call ReinstallVersion h 3 3<"$T/next.aosupd")
-waitfor '[[ $(head -c 31 $SLOTS/usr_2026.12.15.1.erofs) == "Asima OS 2026.12.15.1 sy" ]]'
-check "a reinstall repairs the running version"  '[[ $J == *reinstall-* && $(head -c 31 $SLOTS/usr_2026.12.15.1.erofs) == "Asima OS 2026.12.15.1 sy" ]]'
+waitfor '[[ $(head -n1 $SLOTS/usr_2026.12.15.1.erofs) == "Asima OS 2026.12.15.1 system files" ]]'
+check "a reinstall repairs the running version"  '[[ $J == *reinstall-* && $(head -n1 $SLOTS/usr_2026.12.15.1.erofs) == "Asima OS 2026.12.15.1 system files" ]]'
 waitfor '[[ $(entry current) == asimaos-current+3-0.conf ]]'
 check "…with a fresh trial, the backup untouched" '[[ $(entry current) == asimaos-current+3-0.conf && $(role backup) == 2026.12.01.1 ]]'
 
@@ -183,7 +183,7 @@ mkdir -p "$T/rescue/slots" "$T/rescue/esp" "$T/rescue2/slots" "$T/rescue2/esp"
 PUB=$ROOT/usr/share/asimaos/keys/release.pub
 E=$("$AOSUPD" install --json --key "$PUB" --slots "$T/rescue/slots" --esp "$T/rescue/esp" "$T/good.aosupd")
 check "aosupd install (Rescue) reports its steps" '[[ $E == *"\"id\":\"verify\",\"state\":\"done\""* && $(tail -n1 <<<"$E") == *"\"event\":\"done\""*"\"version\":\"2026.12.01.1\""* ]]'
-check "…writes what Asima Updater writes, and makes it current" '[[ $(head -c 31 $T/rescue/slots/usr_2026.12.01.1.erofs) == "Asima OS 2026.12.01.1 sy" && -s $T/rescue/esp/EFI/Asima/asimaos_2026.12.01.1.efi && -f $T/rescue/esp/loader/entries/asimaos-current+3-0.conf && -f $T/rescue/slots/staged/2026.12.01.1/asimaos-rescue.efi ]]'
+check "…writes what Asima Updater writes, and makes it current" '[[ $(head -n1 $T/rescue/slots/usr_2026.12.01.1.erofs) == "Asima OS 2026.12.01.1 system files" && -s $T/rescue/esp/EFI/Asima/asimaos_2026.12.01.1.efi && -f $T/rescue/esp/loader/entries/asimaos-current+3-0.conf && -f $T/rescue/slots/staged/2026.12.01.1/asimaos-rescue.efi ]]'
 E=$("$AOSUPD" install --json --key "$PUB" --slots "$T/rescue2/slots" --esp "$T/rescue2/esp" "$T/flipped.aosupd"); rc=$?
 check "…a damaged file: one error, nothing written" '[[ $rc -eq 1 && $(grep -c "\"event\":\"error\"" <<<"$E") -eq 1 && -z $(find $T/rescue2 -mindepth 2) ]]'
 "$AOSUPD" install --json --key "$PUB" --slots "$T/rescue2/slots" --esp "$T/rescue2/esp" --typo x "$T/good.aosupd" >/dev/null; rc=$?

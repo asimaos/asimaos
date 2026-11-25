@@ -278,8 +278,8 @@ mod tests {
             reset_plan(&root).unwrap(),
             [
                 "NetworkManager/NetworkManager.conf",
-                "kernel",
                 "asimaos/shield.conf",
+                "kernel",
                 "scx_loader",
                 "ssh/sshd_config.d",
                 "systemd/system/multi-user.target.wants/sshd.service",

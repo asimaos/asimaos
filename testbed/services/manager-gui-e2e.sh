@@ -14,10 +14,13 @@ export DBUS_SESSION_BUS_ADDRESS=$(dbus-daemon --session --fork --print-address) 
 "$SVC_BIN" --session --root "$ROOT" & SVC=$!
 # Face sign-in: one face is enrolled first.
 djpeg -grayscale -pnm build/models/lena.jpg > "$T/face.pgm"
-build/services/release/asimaos-faced --session --store "$T/faces" --models build/models --picture "$T/face.pgm" & FACE=$!
-sleep 1
+echo "auth required pam_asimaos_face.so use=unlock" > "$T/kde-face.template"
+build/services/release/asimaos-faced --session --store "$T/faces" --models build/models --picture "$T/face.pgm" \
+    --pam-file "$T/kde-face" --pam-template "$T/kde-face.template" & FACE=$!
+for _ in $(seq 100); do busctl --user status io.github.asimaos.Face1 >/dev/null 2>&1 && break; sleep 0.1; done
 busctl --user call io.github.asimaos.Face1 /io/github/asimaos/Face1 io.github.asimaos.Face1 Enroll s "Your face" >/dev/null
 for _ in $(seq 300); do [[ -f $T/faces/$(id -u).json ]] && break; sleep 0.1; done
+check "a face is set up through asimaos-faced" '[[ -f $T/faces/$(id -u).json ]]'
 export XDG_RUNTIME_DIR=/tmp/xdg-md && mkdir -p -m 0700 "$XDG_RUNTIME_DIR"
 export LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb DISPLAY=:95
 Xvfb :95 -screen 0 1920x1200x24 -nolisten tcp >/dev/null 2>&1 & X=$!
