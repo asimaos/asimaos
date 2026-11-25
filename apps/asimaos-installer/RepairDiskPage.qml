@@ -59,7 +59,7 @@ WizardPage {
     }
 
     InfoBanner {
-        visible: r.phase === "disks" && r.state === "ok" && page.disks.length === 0
+        visible: page.r.phase === "disks" && page.r.state === "ok" && page.disks.length === 0
         Layout.fillWidth: true
         tone: "warn"
         title: qsTr("No disk with Asima OS was found")
@@ -88,10 +88,10 @@ WizardPage {
     }
 
     InfoBanner {
-        visible: (r.phase === "probe" || r.phase === "disks") && r.state === "error"
+        visible: (page.r.phase === "probe" || page.r.phase === "disks") && page.r.state === "error"
         Layout.fillWidth: true
         tone: "error"
         title: qsTr("The disk could not be opened")
-        text: r.message || ""
+        text: page.r.message || ""
     }
 }
