@@ -59,12 +59,21 @@ fn plugged(root: &Root) -> Vec<(String, String)> {
     out
 }
 
-/// For Asima Gaming: each adapter plugged in, and whether its firmware is here.
+/// Whether this version has xone's adapter driver: the build leaves it out when xone doesn't build
+/// for the kernel (stage 16), and the adapter then isn't supported in that version.
+fn driver(root: &Root) -> bool {
+    let release = std::fs::read_to_string(root.path("/proc/sys/kernel/osrelease")).unwrap_or_default();
+    root.path("/usr/lib/modules").join(release.trim()).join("updates/asimaos/xone_dongle.ko.zst").is_file()
+}
+
+/// For Asima Gaming: each adapter plugged in, whether this version has its driver, and whether its
+/// firmware is here.
 pub fn status(root: &Root) -> Value {
+    let driver = driver(root);
     Value::Array(
         plugged(root)
             .into_iter()
-            .map(|(_, pid)| json!({ "product": pid, "firmware": firmware_file(root, &pid).is_file() }))
+            .map(|(_, pid)| json!({ "product": pid, "driver": driver, "firmware": firmware_file(root, &pid).is_file() }))
             .collect(),
     )
 }
@@ -74,6 +83,7 @@ pub fn status(root: &Root) -> Value {
 pub async fn get_firmware(root: &Root, pid: &str) -> Result<()> {
     let (_, url, member, sum) =
         ADAPTERS.iter().find(|a| a.0 == pid).copied().context("That isn't an Xbox Wireless Adapter")?;
+    ensure!(driver(root), "This version of Asima OS has no driver for the Xbox Wireless Adapter");
     let work = root.path("/var/cache/asimaos-gamingd");
     let _ = std::fs::remove_dir_all(&work);
     std::fs::create_dir_all(&work)?;
@@ -137,10 +147,15 @@ mod tests {
             std::fs::write(d.join("idProduct"), format!("{pid}\n")).unwrap();
         }
         let root = Root(t.clone());
-        assert_eq!(status(&root), json!([{ "product": "02fe", "firmware": false }]));
+        assert_eq!(status(&root), json!([{ "product": "02fe", "driver": false, "firmware": false }]));
+        std::fs::create_dir_all(t.join("proc/sys/kernel")).unwrap();
+        std::fs::write(t.join("proc/sys/kernel/osrelease"), "7.3.4-arch1-1\n").unwrap();
+        let module = t.join("usr/lib/modules/7.3.4-arch1-1/updates/asimaos/xone_dongle.ko.zst");
+        std::fs::create_dir_all(module.parent().unwrap()).unwrap();
+        std::fs::write(&module, b"ko").unwrap();
         std::fs::create_dir_all(firmware_file(&root, "02fe").parent().unwrap()).unwrap();
         std::fs::write(firmware_file(&root, "02fe"), b"fw").unwrap();
-        assert_eq!(status(&root), json!([{ "product": "02fe", "firmware": true }]));
+        assert_eq!(status(&root), json!([{ "product": "02fe", "driver": true, "firmware": true }]));
         assert!(check_pid("091e").is_ok() && check_pid("0b12").is_err());
         let _ = std::fs::remove_dir_all(t);
     }

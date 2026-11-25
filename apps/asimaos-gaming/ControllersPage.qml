@@ -35,9 +35,18 @@ DPage {
         text: qsTr("Plug one in with a cable or its wireless receiver, or pair it over Bluetooth. XInput and DirectInput controllers, Xbox, PlayStation, Nintendo, 8BitDo and most others work right away.")
     }
 
+    // A version without xone's adapter driver (it didn't build for this kernel): said plainly.
+    InfoBanner {
+        visible: (Backend.dongles || []).some(d => !d.driver)
+        Layout.fillWidth: true
+        tone: "warn"
+        title: qsTr("The Xbox Wireless Adapter isn't supported in this version")
+        text: qsTr("Its driver didn't build for this version's Linux kernel. Use your controller over Bluetooth or with a USB cable until an update brings the driver back.")
+    }
+
     // The Xbox Wireless Adapter needs Microsoft's firmware, which Asima OS can't ship (D55).
     Repeater {
-        model: (Backend.dongles || []).filter(d => !d.firmware)
+        model: (Backend.dongles || []).filter(d => d.driver && !d.firmware)
         delegate: InfoBanner {
             id: dongleBanner
             required property var modelData

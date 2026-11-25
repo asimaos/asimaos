@@ -436,7 +436,11 @@ only while a program such as OBS Studio sends to it; it loads at start-up), vhba
 (virtual CD/DVD drives for disc images, for older games; for the person at the computer),
 xpadneo and xone's adapter part (below). They are built against the image's own kernel with the same
 snapshot's `linux-headers`, which only the build container gets, and signed with the build's
-Secure Boot key like NVIDIA's, so they load under lockdown too.
+Secure Boot key like NVIDIA's, so they load under lockdown too. xpadneo and xone come from outside
+the kernel and aren't promised to build on every new one: when one doesn't, the build goes on
+without it and lists it in `build/out/modules-missing.txt` (Xbox controllers over Bluetooth then
+use the kernel's own driver; the Xbox Wireless Adapter isn't supported in that version, and Asima
+Gaming says so). v4l2loopback and vhba are Arch's own packages for that kernel and must build.
 
 **Game controllers of every kind (D55):** every wired controller and 2.4 GHz receiver that speaks
 XInput, Xbox 360, Xbox One and Series ones included, has the kernel's own `xpad` (XInput devices
