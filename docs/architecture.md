@@ -360,7 +360,8 @@ networking, firmware, Mesa and LLVM are left out, and so are the drivers a PC's 
 and the tools that come with its libraries. ICU's data keeps only what an English app that shows
 text needs: the build filters it with ICU's own tools (`icupkg`, `genccode`) and links the library
 again under its own name, without the other languages, transliteration, character set converters
-and the large line-break dictionaries (D55). A root shell is on
+and character names (31 MB → 7 MB, D55); the line-break dictionaries stay, as ICU's root break
+rules need them. A root shell is on
 tty2 and the serial console; the disk still needs its passphrase or recovery key. It reads the
 start menu with `aosupd boot list --plain`, the same code as Asima Updater. What it can do:
 [`apps/DESIGN.md`](../apps/DESIGN.md#asima-rescue).

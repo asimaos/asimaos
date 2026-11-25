@@ -8,7 +8,7 @@ each version changed: [CHANGELOG](../CHANGELOG.md).
 | Step | What | When |
 | --- | --- | --- |
 | **Done** | The test builds before the first public release (internal) | 2026-11-17 to 2026-11-24 |
-| **Now** | The planned OS features (D55) and Asima App Center (D56), listed below, are in the source; next the first Asima OS build with new keys: the VM suites first, then the owner's PCs; every ⏳ in [status](status.md) gets a result | Now |
+| **Now** | The planned OS features (D55) and Asima App Center (D56), listed below, are built: the first Asima OS build (2026.11.25.1, new keys) passed every VM suite ([status](status.md#8-automated-suites)); next the owner's PCs, and every ⏳ in [status](status.md) gets a result | Now |
 | **Asima Hub everywhere (D39)** | In steps, each tested before the next. Done: the app ID `io.github.asimaos.Hub`; the signed feed with a new feed key and the news; the Get Asima OS page (the ISO download, writing the USB stick, "What you'll get on this PC"); the Linux Flatpak as a trial bundle on GitHub Releases, offered by Asima Manager and Asima Maintenance (D54). Then the installer's offer for after the first sign-in, Flathub, the AppImage, the Windows `.exe` and the Snap. Needs a SourceForge project for the big files and a project email address ([Asima Hub](https://github.com/asimaos/asimaos-hub)) | After the first build |
 | **Release candidate** | Once the owner confirms; the ISO and update file on SourceForge, the feed on the website (D50) | After that |
 | **Later** | The release tools (section 4) | Later |
@@ -17,7 +17,7 @@ each version changed: [CHANGELOG](../CHANGELOG.md).
 
 **Gaps to close before a release:**
 
-- **A security contact:** `SECURITY.md` and GitHub's private vulnerability reporting.
+- **A security contact:** `SECURITY.md` names GitHub's private vulnerability reporting; it is switched on when the repositories go public.
 
 ## 3. Built, to be tested (D55, D56)
 
@@ -27,8 +27,8 @@ each version changed: [CHANGELOG](../CHANGELOG.md).
 - Virtual machines' settings in `@vm` (D53).
 - Game mode with gamescope; the handhelds' quick-access and back buttons and gyro aiming through
   InputPlumber.
-- Asima Rescue smaller still: ICU's data (32 MB of the 415 MB in memory) filtered to what Rescue
-  needs.
+- Asima Rescue smaller still: ICU's data filtered to what Rescue needs (31 MB → 7 MB in build
+  2026.11.25.1; Rescue starts and runs in the VM tests).
 - The firmware's list of revoked boot programs (dbx) updated from Asima Maintenance, with TPM
   unlock kept working across it.
 - Signed system extensions (`systemd-sysext`, signed images only).
