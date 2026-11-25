@@ -60,7 +60,9 @@ async fn refresh_tpm_policy(root: &Root) {
         return;
     }
     if let Err(e) = asimaos_svc::cmd::run("/usr/lib/asimaos/asimaos-pcrlock", &["refresh"]).await {
-        eprintln!("Asima OS: the TPM unlock policy was not updated ({e}); the passphrase may be asked at the next start");
+        eprintln!(
+            "Asima OS: the TPM unlock policy was not updated ({e}); the passphrase may be asked at the next start"
+        );
     }
 }
 
@@ -205,8 +207,14 @@ impl Updater {
                 boot::promote(&update::esp(&root), &version)?;
                 update::prune(&root, &running)?;
                 // The two versions share what they have in common (D55); a failure only saves less.
-                let _ = Updater::job_progress(&emitter, &job_id, 0.96, "finish", "Sharing what both versions have in common")
-                    .await;
+                let _ = Updater::job_progress(
+                    &emitter,
+                    &job_id,
+                    0.96,
+                    "finish",
+                    "Sharing what both versions have in common",
+                )
+                .await;
                 let (slots, from, to) = (update::targets(&root).slots, running.clone(), version.clone());
                 match tokio::task::spawn_blocking(move || dedupe::share(&slots, &from, &to)).await {
                     Ok(Ok(n)) if n > 0 => eprintln!("asimaos-updaterd: the two versions share {} MB", n >> 20),
@@ -362,9 +370,7 @@ async fn main() -> anyhow::Result<()> {
                 match update::note_new_defaults(&root) {
                     Ok(0) => {}
                     Ok(n) => {
-                        println!(
-                            "Asima OS: {n} settings file(s) you changed have a new default (Asima Maintenance)"
-                        )
+                        println!("Asima OS: {n} settings file(s) you changed have a new default (Asima Maintenance)")
                     }
                     Err(e) => eprintln!("Asima OS: settings files not compared: {e}"),
                 }

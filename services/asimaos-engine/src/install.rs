@@ -362,8 +362,7 @@ pub fn main(args: &[String], out: &mut Out) -> Result<()> {
     out.progress(0.08, "Ready to write");
 
     // ── 3. write ──
-    let title =
-        if o.encrypt { "Partition, encrypt and copy Asima OS" } else { "Partition and copy Asima OS" };
+    let title = if o.encrypt { "Partition, encrypt and copy Asima OS" } else { "Partition and copy Asima OS" };
     out.step("write", "active", title);
     let payload = du(&o.source.join("slots"))
         + fs::metadata(o.source.join(format!("uki/asimaos_{version}.efi"))).map(|m| m.len()).unwrap_or(0);
@@ -483,10 +482,7 @@ fn check_disk(target: &str) -> Result<u64> {
 /// Asima Rescue and the start menu (the same format as Asima Updater's).
 fn stage_esp(src: &Path, esp: &Path, version: &str) -> Result<()> {
     let shim = src.join("shim");
-    if shim.join("shimx64.efi").is_file()
-        && shim.join("mmx64.efi").is_file()
-        && shim.join("asimaos.der").is_file()
-    {
+    if shim.join("shimx64.efi").is_file() && shim.join("mmx64.efi").is_file() && shim.join("asimaos.der").is_file() {
         // Secure Boot with the PC's Microsoft keys: Microsoft-signed shim, then systemd-boot signed
         // with the Asima OS key, whose certificate stays on the ESP for the blue screen.
         fs::copy(shim.join("shimx64.efi"), esp.join("EFI/BOOT/BOOTX64.EFI"))?;

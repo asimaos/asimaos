@@ -69,10 +69,7 @@ pub fn assess(m: &asimaos_update::Manifest, facts: &Facts, test_mode: bool, rein
     } else if !version::newer(&m.version, &facts.running) {
         add(
             "newer",
-            format!(
-                "Asima OS {} is already installed; this update ({}) is not newer.",
-                facts.running, m.version
-            ),
+            format!("Asima OS {} is already installed; this update ({}) is not newer.", facts.running, m.version),
         );
     }
     if let Some(min) = &m.min_from {
@@ -433,8 +430,7 @@ pub fn run_migrations(root: &Root, running: &str) -> Result<usize> {
         .map(|rd| rd.flatten().map(|e| (e.file_name().to_string_lossy().into_owned(), e.path())).collect())
         .unwrap_or_default();
     steps.retain(|(name, path)| {
-        path.is_file()
-            && step_version(name).is_some_and(|v| version::newer(v, &from) && !version::newer(v, running))
+        path.is_file() && step_version(name).is_some_and(|v| version::newer(v, &from) && !version::newer(v, running))
     });
     steps.sort_by(|a, b| {
         let (va, vb) = (step_version(&a.0).unwrap_or_default(), step_version(&b.0).unwrap_or_default());

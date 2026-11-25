@@ -128,9 +128,7 @@ mod tests {
             .unwrap();
         let r = make(&root).await;
         assert!(
-            r.starts_with("# Asima OS problem report")
-                && r.contains("## Health check")
-                && r.contains("2026.11.18.1")
+            r.starts_with("# Asima OS problem report") && r.contains("## Health check") && r.contains("2026.11.18.1")
         );
         assert!(!r.to_lowercase().contains("passphrase"));
         let _ = fs::remove_dir_all(t);

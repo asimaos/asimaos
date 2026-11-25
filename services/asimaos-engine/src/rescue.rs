@@ -849,7 +849,8 @@ mod tests {
             "backup 2026.11.22.1 - - asimaos-backup".split(' ').map(String::from).collect(),
         ];
         assert_eq!(good_version(&menu).unwrap().0, "2026.11.22.1"); // the current one keeps failing
-        let fine = vec!["current 2026.12.01.1 2 1 asimaos-current+2-1".split(' ').map(String::from).collect::<Vec<_>>()];
+        let fine =
+            vec!["current 2026.12.01.1 2 1 asimaos-current+2-1".split(' ').map(String::from).collect::<Vec<_>>()];
         assert_eq!(good_version(&fine).unwrap().0, "2026.12.01.1");
         assert_eq!(space_needed(4 << 30, false), 10 << 30);
         assert_eq!(space_needed(10 << 30, false), 15 << 30);

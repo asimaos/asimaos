@@ -336,10 +336,7 @@ pub fn main(args: &[String], out: &mut Out) -> Result<()> {
     if out.json {
         out.event(json!({ "event": "done", "version": versions[0] }));
     } else {
-        println!(
-            "Done. {} starts Asima OS {} again. Take out the USB stick and restart.",
-            o.target, versions[0]
-        );
+        println!("Done. {} starts Asima OS {} again. Take out the USB stick and restart.", o.target, versions[0]);
     }
     Ok(())
 }
@@ -420,10 +417,7 @@ fn rebuild_esp(src: &Path, esp: &Path, slots: &Path, versions: &[String]) -> Res
         fs::create_dir_all(esp.join(d))?;
     }
     let shim = src.join("shim");
-    if shim.join("shimx64.efi").is_file()
-        && shim.join("mmx64.efi").is_file()
-        && shim.join("asimaos.der").is_file()
-    {
+    if shim.join("shimx64.efi").is_file() && shim.join("mmx64.efi").is_file() && shim.join("asimaos.der").is_file() {
         fs::copy(shim.join("shimx64.efi"), esp.join("EFI/BOOT/BOOTX64.EFI"))?;
         fs::copy(shim.join("mmx64.efi"), esp.join("EFI/BOOT/mmx64.efi"))?;
         fs::copy(src.join("systemd-bootx64.efi"), esp.join("EFI/BOOT/grubx64.efi"))?;

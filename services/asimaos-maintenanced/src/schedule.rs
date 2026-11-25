@@ -23,10 +23,7 @@ pub fn set(root: &Root, schedule: &str) -> Result<()> {
     }
     let path = root.path(CONF);
     fs::create_dir_all(path.parent().unwrap())?;
-    fs::write(
-        &path,
-        format!("# Asima OS: automatic snapshots (Asima Maintenance → Backups).\nSCHEDULE={schedule}\n"),
-    )?;
+    fs::write(&path, format!("# Asima OS: automatic snapshots (Asima Maintenance → Backups).\nSCHEDULE={schedule}\n"))?;
     Ok(())
 }
 

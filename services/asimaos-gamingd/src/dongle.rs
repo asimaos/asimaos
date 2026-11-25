@@ -73,7 +73,9 @@ pub fn status(root: &Root) -> Value {
     Value::Array(
         plugged(root)
             .into_iter()
-            .map(|(_, pid)| json!({ "product": pid, "driver": driver, "firmware": firmware_file(root, &pid).is_file() }))
+            .map(
+                |(_, pid)| json!({ "product": pid, "driver": driver, "firmware": firmware_file(root, &pid).is_file() }),
+            )
             .collect(),
     )
 }
@@ -93,9 +95,14 @@ pub async fn get_firmware(root: &Root, pid: &str) -> Result<()> {
         .await
         .context("Microsoft's download can't be reached right now")?;
     let work_s = work.to_string_lossy().into_owned();
-    cmd::run("bsdtar", &["-xf", &cab_s, "-C", &work_s, member]).await.context("The firmware isn't in Microsoft's file")?;
+    cmd::run("bsdtar", &["-xf", &cab_s, "-C", &work_s, member])
+        .await
+        .context("The firmware isn't in Microsoft's file")?;
     let data = std::fs::read(work.join(member))?;
-    ensure!(hex::encode(Sha256::digest(&data)) == sum, "The firmware from Microsoft isn't the one expected; nothing was kept");
+    ensure!(
+        hex::encode(Sha256::digest(&data)) == sum,
+        "The firmware from Microsoft isn't the one expected; nothing was kept"
+    );
     let dest = firmware_file(root, pid);
     std::fs::create_dir_all(dest.parent().unwrap())?;
     let tmp = dest.with_extension("bin.part");

@@ -21,9 +21,9 @@ mod face;
 mod store;
 
 use anyhow::Context;
+use asimaos_svc::polkit;
 use camera::{Kind, Source};
 use futures_util::StreamExt;
-use asimaos_svc::polkit;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -150,9 +150,8 @@ impl FaceService {
         }
         let sender = header.sender().ok_or_else(|| Error::AccessDenied("no sender".into()))?.to_owned();
         let pid = fdo::DBusProxy::new(conn).await?.get_connection_unix_process_id(sender.into()).await?;
-        let refuse = |why: &str| {
-            Error::AccessDenied(format!("Only the Asima OS password dialog may ask for this ({why})"))
-        };
+        let refuse =
+            |why: &str| Error::AccessDenied(format!("Only the Asima OS password dialog may ask for this ({why})"));
         let exe = std::fs::read_link(format!("/proc/{pid}/exe")).unwrap_or_default();
         if exe != Path::new(AGENT) {
             return Err(refuse("another program"));

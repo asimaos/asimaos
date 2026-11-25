@@ -134,8 +134,12 @@ impl Manager {
         match (key, &value) {
             ("zone", zvariant::Value::Str(z)) if shield::ZONES.contains(&z.as_str()) => s.zone = z.to_string(),
             ("networkZone", zvariant::Value::Str(v)) => {
-                let (uuid, zone) = v.as_str().split_once(' ').ok_or_else(|| fdo::Error::InvalidArgs("Expected \"UUID ZONE\"".into()))?;
-                let name = shield::active().await.into_iter().find(|a| a.uuid == uuid).map(|a| a.name).unwrap_or_default();
+                let (uuid, zone) = v
+                    .as_str()
+                    .split_once(' ')
+                    .ok_or_else(|| fdo::Error::InvalidArgs("Expected \"UUID ZONE\"".into()))?;
+                let name =
+                    shield::active().await.into_iter().find(|a| a.uuid == uuid).map(|a| a.name).unwrap_or_default();
                 s.set_network(uuid, &name, Some(zone)).map_err(|e| fdo::Error::InvalidArgs(e.to_string()))?
             }
             ("forget", zvariant::Value::Str(uuid)) => {

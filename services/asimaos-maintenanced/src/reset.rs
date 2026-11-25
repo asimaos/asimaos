@@ -31,7 +31,10 @@ fn plan_path(root: &Root) -> std::path::PathBuf {
 
 pub async fn prepare(root: &Root, fresh: Fresh) -> Result<Value> {
     ensure!(asimaos_svc::valid_username(&fresh.username), "The username isn't valid");
-    ensure!(asimaos_svc::valid_fullname(&fresh.full_name) && !fresh.full_name.trim().is_empty(), "The name isn't valid");
+    ensure!(
+        asimaos_svc::valid_fullname(&fresh.full_name) && !fresh.full_name.trim().is_empty(),
+        "The name isn't valid"
+    );
     ensure!(fresh.password.chars().count() >= 4, "The password needs at least 4 characters");
     let hash =
         cmd::run_with("openssl", &["passwd", "-6", "-stdin"], Some(format!("{}\n", fresh.password).as_bytes()), &[])

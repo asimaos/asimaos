@@ -323,14 +323,19 @@ mod tests {
     fn zones() {
         let mut s = Shield { zone: "public".into(), ..Shield::default() };
         let public = ruleset(&s, &[], 0).unwrap();
-        assert!(public.contains("policy drop") && public.contains("goto zone_public") && !public.contains("chain output"));
+        assert!(
+            public.contains("policy drop") && public.contains("goto zone_public") && !public.contains("chain output")
+        );
         assert!(public.contains("\"waydroid*\" } udp dport { 53, 67 } accept"));
-        assert!(public.contains("chain zone_home {\n    icmp") && public.contains("counter stopped { packets 0 bytes 0 }"));
+        assert!(
+            public.contains("chain zone_home {\n    icmp") && public.contains("counter stopped { packets 0 bytes 0 }")
+        );
         s.zone = "home".into();
         s.kill_switch = true;
         s.set_network("1111-aaaa", "Café", Some("public")).unwrap();
         let rules = ruleset(&s, &[net("wlan0", "1111-aaaa"), net("enp3s0", "2222-bbbb")], 42).unwrap();
-        assert!(rules.contains("iifname \"wlan0\" goto zone_public\n    iifname \"enp3s0\" goto zone_home\n    goto zone_home"));
+        assert!(rules
+            .contains("iifname \"wlan0\" goto zone_public\n    iifname \"enp3s0\" goto zone_home\n    goto zone_home"));
         assert!(rules.contains("chain output") && rules.contains("51820") && rules.contains("packets 42"));
         let dev = ruleset(&Shield { zone: "developer".into(), ..Shield::default() }, &[], 0).unwrap();
         assert!(dev.contains("chain zone_developer {\n    icmp") && dev.contains("3000-9000"));

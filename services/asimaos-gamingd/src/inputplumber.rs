@@ -102,9 +102,8 @@ fn handheld_file(root: &Root, name: &str) -> Option<PathBuf> {
 }
 
 async fn name_of(conn: &Connection, path: &str) -> zbus::Result<String> {
-    let reply = conn
-        .call_method(Some(DEST), path, Some("org.freedesktop.DBus.Properties"), "Get", &(IFACE, "Name"))
-        .await?;
+    let reply =
+        conn.call_method(Some(DEST), path, Some("org.freedesktop.DBus.Properties"), "Get", &(IFACE, "Name")).await?;
     let v: zvariant::OwnedValue = reply.body().deserialize()?;
     String::try_from(v).map_err(zbus::Error::from)
 }
@@ -131,10 +130,8 @@ async fn builtin(root: &Root, conn: &Connection) -> Option<(String, String, Path
 pub async fn status(root: &Root, conn: &Connection) -> Value {
     let Some((_, name, file)) = builtin(root, conn).await else { return Value::Null };
     let shipped = targets(&std::fs::read_to_string(&file).unwrap_or_default());
-    let chosen = file
-        .file_name()
-        .and_then(|n| std::fs::read_to_string(root.path(CHOSEN).join(n)).ok())
-        .map(|t| targets(&t));
+    let chosen =
+        file.file_name().and_then(|n| std::fs::read_to_string(root.path(CHOSEN).join(n)).ok()).map(|t| targets(&t));
     let gamepad = |list: &[String]| list.iter().find(|t| is_gamepad(t)).cloned();
     json!({
         "name": name,
@@ -147,7 +144,8 @@ pub async fn status(root: &Root, conn: &Connection) -> Value {
 /// Shows the built-in controller as `kind` (one of KINDS), now and after every start.
 pub async fn set_controller(root: &Root, conn: &Connection, kind: &str) -> Result<()> {
     anyhow::ensure!(KINDS.contains(&kind), "Unknown kind of controller");
-    let (path, _, file) = builtin(root, conn).await.context("InputPlumber doesn't manage a built-in controller here")?;
+    let (path, _, file) =
+        builtin(root, conn).await.context("InputPlumber doesn't manage a built-in controller here")?;
     let text = std::fs::read_to_string(&file).context("InputPlumber's file for this handheld can't be read")?;
     let shipped = targets(&text);
     let mut list: Vec<String> = shipped.iter().filter(|t| !is_gamepad(t)).cloned().collect();
