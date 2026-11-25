@@ -1,0 +1,6 @@
+# Asima OS (D55): brightness of external monitors over the cable (DDC/CI). Plasma's brightness
+# controls (libddcutil) talk to a monitor through its graphics card's I2C bus; the person at the
+# computer may use those buses, and only those of graphics cards (PCI class 0x03: VGA, 3D and
+# display controllers). Runs before 73-seat-late.rules, which turns "uaccess" into access for the
+# person at the computer only.
+SUBSYSTEM=="i2c-dev", KERNEL=="i2c-[0-9]*", ATTRS{class}=="0x03[0-9a-f][0-9a-f]00", TAG+="uaccess"

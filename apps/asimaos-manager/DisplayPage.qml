@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Asima.Ui
@@ -8,8 +9,9 @@ DPage {
     id: page
     title: qsTr("Display")
     readonly property var dsp: Backend.display
-    subtitle: page.dsp.kbdAvailable ? qsTr("Reach the screen settings fast, and set the keyboard light.")
-                                    : qsTr("Reach the screen settings fast.")
+    readonly property var monitors: page.dsp.monitors || []
+    subtitle: page.dsp.kbdAvailable ? qsTr("Every screen's brightness, the screen settings one click away, and the keyboard light.")
+                                    : qsTr("Every screen's brightness, and the screen settings one click away.")
 
     GridLayout {
         Layout.fillWidth: true
@@ -34,14 +36,8 @@ DPage {
             ListRow {
                 Layout.fillWidth: true
                 title: qsTr("Night light")
-                DButton { text: qsTr("Open"); variant: "ghost"; onClicked: Backend.openSettings("kcm_nightlight") }
-            }
-            ListRow {
-                Layout.fillWidth: true
-                title: qsTr("Brightness of external monitors")
-                subtitle: qsTr("Works over the cable on most monitors (DDC/CI)")
                 separator: false
-                DButton { text: qsTr("Open"); variant: "ghost"; onClicked: Backend.openSettings("kcm_powerdevilprofilesconfig") }
+                DButton { text: qsTr("Open"); variant: "ghost"; onClicked: Backend.openSettings("kcm_nightlight") }
             }
         }
 
@@ -67,6 +63,47 @@ DPage {
                 }
                 UiText { text: qsTr("Bright"); tone: "muted"; variant: "small" }
             }
+        }
+    }
+
+    // Every screen's brightness, the external monitors' over the cable (DDC/CI, D55), through
+    // Plasma's own brightness control.
+    Card {
+        Layout.fillWidth: true
+        title: qsTr("Brightness")
+        subtitle: page.monitors.some(m => !m.internal)
+                  ? qsTr("External monitors change over the cable (DDC/CI).")
+                  : qsTr("External monitors that allow it (DDC/CI, on in most monitors' own menus) appear here once connected.")
+        icon: "brightness-high"
+        tone: "info"
+        spacing: 0
+        Repeater {
+            model: page.monitors
+            delegate: ListRow {
+                id: monitorRow
+                required property var modelData
+                required property int index
+                Layout.fillWidth: true
+                iconName: modelData.internal ? "computer-laptop" : "monitor"
+                title: modelData.internal ? qsTr("Built-in screen") : (modelData.label || qsTr("Monitor"))
+                subtitle: Math.round(100 * modelData.brightness / Math.max(1, modelData.max)) + " %"
+                separator: index < page.monitors.length - 1
+                DSlider {
+                    implicitWidth: 260
+                    from: 0
+                    to: monitorRow.modelData.max
+                    stepSize: 1
+                    value: monitorRow.modelData.brightness
+                    onMoved: Backend.setMonitorBrightness(monitorRow.modelData.name, Math.round(value))
+                }
+            }
+        }
+        UiText {
+            visible: page.monitors.length === 0
+            text: qsTr("Plasma isn't showing any screen whose brightness can change.")
+            tone: "muted"
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
         }
     }
 

@@ -110,7 +110,9 @@ void ManagerEngine::loadDemo()
     m_battery = d.battery;
     m_thermals = d.thermals;
     m_power = d.power;
-    m_display = item({{"rgbLights", 2}, {"kbdAvailable", false}, {"kbdLevel", 0}, {"kbdMax", 3}});
+    m_display = item({{"rgbLights", 2}, {"kbdAvailable", false}, {"kbdLevel", 0}, {"kbdMax", 3},
+                      {"monitors", QVariantList{item({{"name", "display0"}, {"label", "Built-in Screen"}, {"internal", true}, {"brightness", 70}, {"max", 100}}),
+                                                item({{"name", "display1"}, {"label", "DELL U2723QE"}, {"internal", false}, {"brightness", 45}, {"max", 100}})}}});
     m_biometrics = item({{"useLogin", true}, {"useUnlock", true}, {"useWebcam", false}});
     m_shield = item({{"managed", true}, {"zone", "home"}, {"killSwitch", false}, {"available", true},
                      {"networks", QVariantList{item({{"uuid", "8c1f0a52-demo"}, {"name", "Home Wi-Fi"}, {"kind", "wifi"},
@@ -160,7 +162,8 @@ void ManagerEngine::loadSystem()
             ++rgbLights;
     }
     m_display = item({{"rgbLights", rgbLights}, {"kbdAvailable", kbdMax.isValid() && kbdMax.value() > 0},
-                      {"kbdLevel", kbdNow.isValid() ? kbdNow.value() : 0}, {"kbdMax", kbdMax.isValid() ? kbdMax.value() : 0}});
+                      {"kbdLevel", kbdNow.isValid() ? kbdNow.value() : 0}, {"kbdMax", kbdMax.isValid() ? kbdMax.value() : 0},
+                      {"monitors", readMonitors()}});
 
     m_biometrics = item({{"useLogin", true}, {"useUnlock", true}, {"useWebcam", false}});
 
@@ -181,6 +184,7 @@ void ManagerEngine::readLive()
         return;
     m_battery = DeviceState::battery();
     m_thermals = DeviceState::thermals();
+    m_display.insert("monitors", readMonitors());
     // Installed for the person or for everyone, Flatpak exports the desktop file to XDG_DATA_DIRS.
     m_hubInstalled = !QStandardPaths::locate(QStandardPaths::ApplicationsLocation, QStringLiteral("io.github.asimaos.Hub.desktop")).isEmpty();
 }
@@ -241,6 +245,55 @@ void ManagerEngine::set(const QString &area, const QString &key, const QVariant 
     }
     target->insert(key, value);
     emit changed();
+}
+
+// Every screen's brightness through Plasma's power service (PowerDevil's org.kde.ScreenBrightness):
+// the built-in one, and external monitors over the cable (DDC/CI, D55) where they allow it.
+QVariantList ManagerEngine::readMonitors() const
+{
+    QVariantList monitors;
+    auto get = [](const QString &path, const QString &iface, const QString &name) {
+        QDBusMessage m = QDBusMessage::createMethodCall(QStringLiteral("org.kde.ScreenBrightness"), path,
+                                                        QStringLiteral("org.freedesktop.DBus.Properties"), QStringLiteral("Get"));
+        m << iface << name;
+        const QDBusMessage r = QDBusConnection::sessionBus().call(m, QDBus::Block, 1000);
+        return r.type() == QDBusMessage::ReplyMessage && !r.arguments().isEmpty()
+                   ? r.arguments().first().value<QDBusVariant>().variant() : QVariant();
+    };
+    const QString display = QStringLiteral("org.kde.ScreenBrightness.Display");
+    for (const QString &name : get(QStringLiteral("/org/kde/ScreenBrightness"), QStringLiteral("org.kde.ScreenBrightness"),
+                                   QStringLiteral("DisplaysDBusNames")).toStringList()) {
+        const QString path = QStringLiteral("/org/kde/ScreenBrightness/") + name;
+        const int max = get(path, display, QStringLiteral("MaxBrightness")).toInt();
+        if (max <= 0)
+            continue;
+        monitors << item({{"name", name}, {"label", get(path, display, QStringLiteral("Label")).toString()},
+                          {"internal", get(path, display, QStringLiteral("IsInternal")).toBool()},
+                          {"brightness", get(path, display, QStringLiteral("Brightness")).toInt()}, {"max", max}});
+    }
+    return monitors;
+}
+
+void ManagerEngine::setMonitorBrightness(const QString &name, int value)
+{
+    QVariantList monitors = m_display.value("monitors").toList();
+    for (QVariant &m : monitors) {
+        QVariantMap mm = m.toMap();
+        if (mm.value("name").toString() != name)
+            continue;
+        value = qBound(0, value, mm.value("max").toInt());
+        mm.insert("brightness", value);
+        m = mm;
+    }
+    m_display.insert("monitors", monitors);
+    emit changed();
+    if (m_demo)
+        return;
+    // Flag 1: no on-screen indicator; the slider shows the level.
+    QDBusMessage m = QDBusMessage::createMethodCall(QStringLiteral("org.kde.ScreenBrightness"), QStringLiteral("/org/kde/ScreenBrightness/") + name,
+                                                    QStringLiteral("org.kde.ScreenBrightness.Display"), QStringLiteral("SetBrightness"));
+    m << value << uint(1);
+    QDBusConnection::sessionBus().asyncCall(m);
 }
 
 void ManagerEngine::setKeyboardLight(int level)

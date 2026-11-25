@@ -61,6 +61,8 @@ public:
     // Settings kept by asimaos-managerd (area: shield | power | biometrics).
     Q_INVOKABLE void set(const QString &area, const QString &key, const QVariant &value);
     Q_INVOKABLE void setKeyboardLight(int level);
+    // A screen's brightness (Plasma's org.kde.ScreenBrightness; external monitors over DDC/CI).
+    Q_INVOKABLE void setMonitorBrightness(const QString &name, int value);
     Q_INVOKABLE void openSettings(const QString &module);
     Q_INVOKABLE void copyReport();
     // Opens another Asima OS app, e.g. "asimaos-gaming --page lighting".
@@ -82,7 +84,8 @@ private:
     void applySetting(const QString &area, const QString &key, const QVariant &value);
     void loadDemo();
     void loadSystem();
-    void readLive();          // battery and temperatures: refreshed every few seconds
+    void readLive();          // battery, temperatures and screen brightness: refreshed every few seconds
+    QVariantList readMonitors() const;
     void needsService(const QString &what);
 
     ServiceClient *m_service = nullptr;   // asimaos-managerd; none in demo mode or when it's missing
