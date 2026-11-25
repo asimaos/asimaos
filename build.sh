@@ -11,6 +11,14 @@ IMAGE="localhost/asimaos-builder:${ASIMAOS_ARCHIVE_DATE//\//-}-${BUILDER_HASH}"
 
 mkdir -p build/pkgcache
 sed "s|@ARCHIVE_DATE@|${ASIMAOS_ARCHIVE_DATE}|g" builder/pacman.conf.in > builder/pacman.conf
+# A local builder/local.conf (not in git) may name faster mirrors in ASIMAOS_CACHE_SERVERS: pacman
+# fetches package files there first (CacheServer), while the package lists stay the snapshot's and
+# every file is still checked against the snapshot's checksums and signatures; what a mirror no
+# longer has comes from the archive.
+[[ -f builder/local.conf ]] && source builder/local.conf
+for m in ${ASIMAOS_CACHE_SERVERS:-}; do
+    sed -i "/^\[\(core\|extra\)\]\$/a CacheServer = ${m}/\$repo/os/\$arch" builder/pacman.conf
+done
 cp builder/pacman.conf build/pacman.conf
 
 if ! podman image exists "${IMAGE}"; then

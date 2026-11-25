@@ -24,6 +24,11 @@ folder for SELinux (`:Z`), which cuts off a container that is already running.
 - **`builder/asimaos.conf`**: the archive snapshot date, the version (`YYYY.MM.DD.N`) and its label (shown
   only inside the system, never in the start menu), the package list, and TEST-ONLY passwords for
   the prebuilt disk image.
+- **`builder/local.conf`** (optional, never in git): this computer's own settings. When the Arch
+  archive is slow from where you build, `ASIMAOS_CACHE_SERVERS="https://MIRROR/archlinux …"` names
+  ordinary Arch mirrors that pacman asks first for package files (`CacheServer`); the package lists
+  stay the snapshot's, every file is still checked against the snapshot's checksums and signatures,
+  and what a mirror no longer has comes from the archive.
 - **`build/keys/`** is made on the first build. It never goes into any repository (D25); keep it
   in an encrypted backup:
   - `release.key` / `release.pub`: Ed25519, signs the update files. An installed system only

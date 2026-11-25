@@ -12,6 +12,14 @@ source ./builder/asimaos.conf
 mkdir -p build      # a fresh checkout has none yet; the container writes its logs and objects there
 
 sed "s|@ARCHIVE_DATE@|${ASIMAOS_ARCHIVE_DATE}|g" builder/pacman.conf.in > builder/pacman.conf
+# A local builder/local.conf (not in git) may name faster mirrors in ASIMAOS_CACHE_SERVERS: pacman
+# fetches package files there first (CacheServer), while the package lists stay the snapshot's and
+# every file is still checked against the snapshot's checksums and signatures; what a mirror no
+# longer has comes from the archive.
+[[ -f builder/local.conf ]] && source builder/local.conf
+for m in ${ASIMAOS_CACHE_SERVERS:-}; do
+    sed -i "/^\[\(core\|extra\)\]\$/a CacheServer = ${m}/\$repo/os/\$arch" builder/pacman.conf
+done
 HASH="$(cat apps/Containerfile builder/pacman.conf.in | sha256sum | cut -c1-8)"
 IMAGE="localhost/asimaos-apps-builder:${ASIMAOS_ARCHIVE_DATE//\//-}-${HASH}"
 
