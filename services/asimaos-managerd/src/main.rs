@@ -7,14 +7,15 @@
 //! set up by Asima Dev through two system units (D34).
 //!
 //!   asimaos-managerd                        system bus, polkit (D-Bus activation)
-//!   asimaos-managerd --apply-shield         apply the saved firewall zone (asimaos-shield.service, at boot)
+//!   asimaos-managerd --apply-shield         apply the saved firewall zones (asimaos-shield.service at
+//!                                          boot, and NetworkManager's dispatcher as networks change)
 //!   asimaos-managerd --session --root DIR   test mode: session bus, no polkit, a scratch system tree
 
 mod device;
 mod shield;
 
 use anyhow::Context;
-use asimaos_svc::{cmd, polkit, Root};
+use asimaos_svc::{polkit, Root};
 use serde_json::json;
 use std::path::PathBuf;
 use tokio::sync::Mutex;
@@ -50,11 +51,11 @@ fn face_on(root: &Root, key: &str) -> bool {
 impl Manager {
     /// What this device can do and its current values, as JSON. No password needed.
     async fn status(&self) -> String {
-        let s = shield::load(&self.root);
+        let shield = shield::status(&self.root).await;
         json!({
             "contract": asimaos_svc::CONTRACT,
             "managed": true,
-            "shield": { "zone": s.zone, "killSwitch": s.kill_switch, "available": cmd::exists("nft") },
+            "shield": shield,
             "device": device::status(&self.root),
             "biometrics": {
                 "useLogin": face_use(&self.root, "LOGIN"),
@@ -116,7 +117,9 @@ impl Manager {
         Ok(())
     }
 
-    /// Firewall: key = "zone" (public | home | developer) or "killSwitch" (bool).
+    /// Firewall: key = "zone" (the zone of networks without their own: public | home | developer),
+    /// "networkZone" ("UUID ZONE": the zone a network keeps, D55), "forget" (a network's UUID: it
+    /// gets the zone of other networks again) or "killSwitch" (bool).
     async fn set_shield(
         &self,
         #[zbus(header)] header: Header<'_>,
@@ -130,6 +133,14 @@ impl Manager {
         let mut s = shield::load(&self.root);
         match (key, &value) {
             ("zone", zvariant::Value::Str(z)) if shield::ZONES.contains(&z.as_str()) => s.zone = z.to_string(),
+            ("networkZone", zvariant::Value::Str(v)) => {
+                let (uuid, zone) = v.as_str().split_once(' ').ok_or_else(|| fdo::Error::InvalidArgs("Expected \"UUID ZONE\"".into()))?;
+                let name = shield::active().await.into_iter().find(|a| a.uuid == uuid).map(|a| a.name).unwrap_or_default();
+                s.set_network(uuid, &name, Some(zone)).map_err(|e| fdo::Error::InvalidArgs(e.to_string()))?
+            }
+            ("forget", zvariant::Value::Str(uuid)) => {
+                s.set_network(uuid.as_str(), "", None).map_err(|e| fdo::Error::InvalidArgs(e.to_string()))?
+            }
             ("killSwitch", zvariant::Value::Bool(b)) => s.kill_switch = *b,
             _ => return Err(fdo::Error::InvalidArgs("Unknown firewall setting".into())),
         }
@@ -166,7 +177,12 @@ async fn main() -> anyhow::Result<()> {
     if apply_shield {
         let s = shield::load(&root);
         shield::apply(&s).await?;
-        println!("Asima Shield: {} zone{}", s.zone, if s.kill_switch { ", VPN kill-switch on" } else { "" });
+        println!(
+            "Asima Shield: {} zone for other networks, {} with their own{}",
+            s.zone,
+            s.networks.len(),
+            if s.kill_switch { ", VPN kill-switch on" } else { "" }
+        );
         return Ok(());
     }
     // At start-up (asimaos-battery.service): the saved charge limit back on the battery.

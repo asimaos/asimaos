@@ -40,8 +40,8 @@ each version changed: [CHANGELOG](../CHANGELOG.md).
 
 - A repair app on the USB stick: "Repair this computer" with screens, driving `asimaos-engine`; it
   installs the stick's version, newer or older, keeping files.
-- Asima Manager → Shield: a zone per network, remembered when it is joined; the VPN in use; a count
-  of the connections Shield stopped.
+- Asima Manager → Shield: a zone per network, remembered when it is joined, and a zone that stops
+  nothing ("Not secure"); the VPN in use; a count of the connections Shield stopped.
 - Asima Manager → Display: brightness of external monitors (DDC/CI through `ddcutil`).
 - Asima Dev: disk use and limits for containers, VMs and Nix (Btrfs quotas); no copy-on-write for VM
   disk folders.

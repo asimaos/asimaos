@@ -108,7 +108,7 @@ esac
 
 step "Services that start with the system"
 with_root_mounts chroot "${ROOT}" systemctl enable \
-    NetworkManager.service systemd-resolved.service systemd-timesyncd.service bluetooth.service \
+    NetworkManager.service NetworkManager-dispatcher.service systemd-resolved.service systemd-timesyncd.service bluetooth.service \
     plasmalogin.service cups.socket avahi-daemon.socket power-profiles-daemon.service \
     switcheroo-control.service scx_loader.service apparmor.service fstrim.timer \
     systemd-oomd.service \

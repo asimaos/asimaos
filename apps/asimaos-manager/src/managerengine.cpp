@@ -11,6 +11,7 @@
 #include <QDBusMessage>
 #include <QDBusReply>
 #include <QDBusVariant>
+#include <QDateTime>
 #include <QDesktopServices>
 #include <QDir>
 #include <QGuiApplication>
@@ -19,6 +20,8 @@
 #include <QStandardPaths>
 #include <QTimer>
 #include <QUrl>
+
+#include <algorithm>
 
 using Util::item;
 
@@ -53,10 +56,10 @@ void ManagerEngine::onServiceChanged(const QString &)
 
 void ManagerEngine::applyServiceStatus(const QJsonObject &s)
 {
-    const QJsonObject shield = s.value("shield").toObject();
+    // Shield (D55): the zone for other networks, each network in use with its zone, the ones it
+    // remembers, the VPN in use and the connection attempts it stopped since the start.
+    m_shield = s.value("shield").toObject().toVariantMap();
     m_shield.insert("managed", true);
-    m_shield.insert("zone", shield.value("zone").toString());
-    m_shield.insert("killSwitch", shield.value("killSwitch").toBool());
     const QJsonObject dev = s.value("device").toObject();
     const QJsonObject limit = dev.value("chargeLimit").toObject();
     if (limit.value("supported").toBool()) {
@@ -109,7 +112,13 @@ void ManagerEngine::loadDemo()
     m_power = d.power;
     m_display = item({{"rgbLights", 2}, {"kbdAvailable", false}, {"kbdLevel", 0}, {"kbdMax", 3}});
     m_biometrics = item({{"useLogin", true}, {"useUnlock", true}, {"useWebcam", false}});
-    m_shield = item({{"managed", true}, {"zone", "home"}, {"killSwitch", false}});
+    m_shield = item({{"managed", true}, {"zone", "home"}, {"killSwitch", false}, {"available", true},
+                     {"networks", QVariantList{item({{"uuid", "8c1f0a52-demo"}, {"name", "Home Wi-Fi"}, {"kind", "wifi"},
+                                                      {"device", "wlan0"}, {"zone", "home"}, {"own", true}})}},
+                     {"remembered", QVariantList{item({{"uuid", "51d2e9b0-demo"}, {"name", "Café Lumen"}, {"zone", "public"}}),
+                                                 item({{"uuid", "e07a4c13-demo"}, {"name", "Office"}, {"zone", "developer"}})}},
+                     {"vpn", QVariantList{}}, {"stopped", 37},
+                     {"since", double(QDateTime::currentSecsSinceEpoch() - 2 * 3600)}});
 }
 
 // A thin-and-light laptop: infrared camera, fingerprint in the power button, keyboard backlight.
@@ -159,7 +168,7 @@ void ManagerEngine::loadSystem()
     for (const QString &line : SysInfo::readTrimmed(QStringLiteral("/etc/asimaos/shield.conf")).split(QLatin1Char('\n')))
         if (line.startsWith(QLatin1String("ZONE=")))
             zone = line.mid(5);
-    m_shield = item({{"managed", false}, {"zone", zone}, {"killSwitch", false}});
+    m_shield = item({{"managed", false}, {"zone", zone}, {"killSwitch", false}, {"networks", QVariantList{}}});
 
     readLive();
     m_power = PowerProfiles::read();
@@ -207,6 +216,28 @@ void ManagerEngine::set(const QString &area, const QString &key, const QVariant 
             needsService(tr("Changing this setting"));
             return;
         }
+    }
+    if (area == QLatin1String("shield") && (key == QLatin1String("networkZone") || key == QLatin1String("forget"))) {
+        // The page shows the change at once; the service's Status() follows.
+        const QString uuid = value.toString().section(QLatin1Char(' '), 0, 0);
+        QVariantList nets = m_shield.value("networks").toList();
+        for (QVariant &n : nets) {
+            QVariantMap m = n.toMap();
+            if (m.value("uuid").toString() == uuid) {
+                m.insert("zone", key == QLatin1String("forget") ? m_shield.value("zone") : QVariant(value.toString().section(QLatin1Char(' '), 1)));
+                m.insert("own", key != QLatin1String("forget"));
+                n = m;
+            }
+        }
+        m_shield.insert("networks", nets);
+        QVariantList remembered = m_shield.value("remembered").toList();
+        if (key == QLatin1String("forget"))
+            remembered.erase(std::remove_if(remembered.begin(), remembered.end(),
+                                            [&](const QVariant &r) { return r.toMap().value("uuid").toString() == uuid; }),
+                             remembered.end());
+        m_shield.insert("remembered", remembered);
+        emit changed();
+        return;
     }
     target->insert(key, value);
     emit changed();

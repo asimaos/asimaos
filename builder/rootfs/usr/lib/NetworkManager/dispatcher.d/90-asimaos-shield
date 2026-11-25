@@ -1,0 +1,7 @@
+#!/bin/sh
+# Asima Shield (D55): each network keeps its own firewall zone. NetworkManager runs this whenever
+# a network is joined or left; the rules then follow the networks in use.
+case "$2" in
+    up|down|vpn-up|vpn-down) exec /usr/lib/asimaos/asimaos-managerd --apply-shield ;;
+esac
+exit 0
