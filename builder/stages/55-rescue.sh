@@ -102,8 +102,8 @@ step "Rescue system: ICU's data, only what Rescue needs"
 # Qt needs ICU, whose data library holds 32 MB: character properties and normalisation, line
 # breaking, and every language's names, calendars, sorting and character sets. Rescue speaks
 # English and only shows text, so the other languages' data, transliteration, the character set
-# converters, the character names and the large line-break dictionaries (Chinese, Japanese, Thai,
-# Lao, Khmer, Burmese: those lines then break at any character) go. The library is made again
+# converters and the character names go. The line-break dictionaries stay: ICU's root break rules
+# name them, and icupkg writes no data that misses an item another one needs. The library is made again
 # under its own name from the filtered data, with ICU's own tools (icupkg, genccode) and the
 # linker, which only this throw-away container gets.
 pacman -S --needed --noconfirm --cachedir /var/cache/pacman/pkg binutils >/dev/null
@@ -121,12 +121,17 @@ dd if="${ICU}/rodata.bin" of="${RROOT}/tmp/icu/${pkg}.dat" bs=1M iflag=skip_byte
     skip=$(( 16#${addr} - 16#${vma} )) count=$(( 16#${size} ))
 chroot "${RROOT}" icupkg -l "/tmp/icu/${pkg}.dat" > "${ICU}/items.txt"
 sed -E 's#^icudt[0-9]+[lb]/##' "${ICU}/items.txt" \
-    | grep -E -e '^translit/' -e '\.cnv$' -e '^unames\.icu$' -e '^brkitr/[^/]+\.dict$' \
-              -e '^((brkitr|coll|curr|lang|rbnf|region|unit|zone)/)?[a-z]{2,3}(_[A-Za-z0-9]+)*\.res$' \
-    | grep -v -E '(^|/)(res_index|root|en|en_001|en_150|en_GB|en_US|en_US_POSIX)\.res$' > "${RROOT}/tmp/icu/remove.txt" || true
-chroot "${RROOT}" icupkg -r /tmp/icu/remove.txt "/tmp/icu/${pkg}.dat" "/tmp/icu/${pkg}-rescue.dat"
-chroot "${RROOT}" genccode -o -e "${sym%_dat}" -d /tmp/icu "/tmp/icu/${pkg}-rescue.dat"
-obj=$(find "${RROOT}/tmp/icu" -name '*.o' -print -quit)
+    | grep -E -e '^translit/' -e '\.cnv$' -e '^unames\.icu$' \
+              -e '^((brkitr|coll|curr|lang|rbnf|region|unit|zone)/)?[a-z]{2,3}(_[A-Za-z0-9]*)*\.res$' \
+    | grep -v -E '(^|/)(res_index|root|en|en_|en_001|en_150|en_GB|en_US|en_US_POSIX)\.res$' > "${RROOT}/tmp/icu/remove.txt" || true
+# The filtered package keeps the original's file name: icupkg names every item after it
+# (icudt78l/…), and that is where ICU looks.
+mkdir -p "${RROOT}/tmp/icu/out"
+chroot "${RROOT}" icupkg -r /tmp/icu/remove.txt "/tmp/icu/${pkg}.dat" "/tmp/icu/out/${pkg}.dat"
+# The object is made for the original library's CPU (genccode would otherwise look at its own
+# program through /proc, which this chroot hasn't got).
+chroot "${RROOT}" genccode -o -m "${lib#"${RROOT}"}" -e "${sym%_dat}" -d /tmp/icu/out "/tmp/icu/out/${pkg}.dat"
+obj=$(find "${RROOT}/tmp/icu/out" -name '*.o' -print -quit)
 [[ -n ${obj} ]] || die "genccode made no object file from ICU's data"
 ld -shared -z noexecstack -soname "${soname}" -o "${ICU}/${lib##*/}" "${obj}"
 nm -D --defined-only "${ICU}/${lib##*/}" | grep " ${sym}\$" >/dev/null || die "the filtered ICU library lacks ${sym}"
