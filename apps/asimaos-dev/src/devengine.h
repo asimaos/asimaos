@@ -7,11 +7,14 @@
 #include <QUrl>
 #include <QVariantMap>
 
+class ServiceClient;
+
 // Data and actions behind Asima Dev: containers (Distrobox on Podman), virtual machines, the
 // programs installed with Nix (D28: terminal and developer tools come from Nix or Distrobox) and
 // Android apps (Waydroid, D34). Everything here runs as you, without root, so Asima Dev needs no
-// system service: setting Android up or removing it starts one of two system units through
-// systemd, which asks for the administrator's password (polkit).
+// system service of its own: setting Android up or removing it starts one of two system units
+// through systemd, which asks for the administrator's password (polkit), and disk limits go
+// through Asima Maintenance's service, which owns the disk (D55).
 // Demo mode: sample containers, a virtual machine and Android.
 class DevEngine : public QObject
 {
@@ -28,6 +31,10 @@ class DevEngine : public QObject
     Q_PROPERTY(QVariantMap passthrough READ passthrough NOTIFY changed)
     // Android apps (Waydroid): { available, ready, settingUp, setupFailed, removing, softwareOnly, running }.
     Q_PROPERTY(QVariantMap android READ android NOTIFY changed)
+    // Disk use and limits (D55, through asimaos-maintenanced): { available, counted, areas: [{ id,
+    // person, separate, used, limit }] }: containers, virtual machines and Nix programs, the
+    // system's and yours.
+    Q_PROPERTY(QVariantMap storage READ storage NOTIFY changed)
 
 public:
     // The one instance main() makes; QML gets it as the Backend singleton (known at build time,
@@ -46,6 +53,7 @@ public:
     QVariantMap nix() const { return m_nix; }
     QVariantMap android() const { return m_android; }
     QVariantMap passthrough() const { return m_passthrough; }
+    QVariantMap storage() const { return m_storage; }
 
     Q_INVOKABLE void createContainer(const QString &image, const QString &name);
     // Virtual machines in your own libvirt session: kind "windows" (UEFI, Secure Boot,
@@ -76,6 +84,10 @@ public:
     Q_INVOKABLE void androidOpen();
     Q_INVOKABLE void androidStop();
     Q_INVOKABLE void androidInstall(const QUrl &apk);
+    // Disk use: read again; a limit in GB for an area ("nix", "vm:asha" …), 0 for none, after
+    // the administrator's password.
+    Q_INVOKABLE void readStorage();
+    Q_INVOKABLE void setStorageLimit(const QString &area, double gb);
     void setDemoAndroid(const QString &state);   // "" (ready) or "setup" (not set up yet)
     void setDemoGpuReady();                       // screenshots: the second card kept and on vfio-pci
 
@@ -98,4 +110,6 @@ private:
     QVariantMap m_nix;
     QVariantMap m_android;
     QVariantMap m_passthrough;
+    QVariantMap m_storage;
+    ServiceClient *m_maintenance = nullptr;   // asimaos-maintenanced, for disk use and limits
 };

@@ -1,0 +1,13 @@
+# Asima OS (D55): your containers and virtual machine disks in subvolumes of their own (see
+# /usr/lib/asimaos/asimaos-dev-storage).
+[Unit]
+Description=Asima OS: containers and virtual machine disks in their own areas
+ConditionKernelCommandLine=!asimaos.live
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/asimaos/asimaos-dev-storage
+Nice=10
+
+[Install]
+WantedBy=default.target

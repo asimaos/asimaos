@@ -156,6 +156,7 @@ Looking after the installed system.
 | `NewRecoveryKey(s current) → s` | method | `io.github.asimaos.maintenance.secrets` (auth_admin, no keep): enrolls a new key, removes the old one, returns it once (keys are never stored, so there is no "reveal") |
 | `RestoreEtc(s path)` (applied at the next start, never while /etc is mounted; account files are protected) | method | `io.github.asimaos.maintenance.etc` (auth_admin) |
 | `StartAsimaFirst()` (the entry this start came from goes first in `BootOrder`) | method | `io.github.asimaos.maintenance.boot` (auth_admin_keep) |
+| `Storage() → s` (no password) / `SetStorageLimit(s area, t bytes)` (0: none) | method | the areas' use and limits (D55: containers, VMs, Nix, Flatpak, `/home`, `/var`; `containers:NAME`, `vm:NAME` for a person's); limits: `io.github.asimaos.maintenance.storage` (auth_admin_keep), simple quotas switched on first when they are off |
 | `ResetSettings() → u` ("Reset settings" for the caller, a person's account: schedules it, restarts; returns how many `/etc` entries are reset) | method | `io.github.asimaos.maintenance.etc` (auth_admin) |
 | `PrepareFactoryReset(s json fresh) → s` / `CancelFactoryReset()` / `ScheduleFactoryReset()` | method | `io.github.asimaos.maintenance.reset` (auth_admin, no keep): stages the fresh account and new disk secrets, then the initramfs wipes and rebuilds |
 
@@ -247,7 +248,11 @@ controller connects. Without a saved colour the lights keep the firmware's own.
 Containers, virtual machines, Nix programs and Android apps. Everything here runs as you
 (Distrobox on rootless Podman, libvirt's session, your own Nix profile, Waydroid's session), so
 Asima Dev has no service. Setting Android up or removing it starts one of two system units through
-systemd's `StartUnit` (polkit `org.freedesktop.systemd1.manage-units`, the administrator's password).
+systemd's `StartUnit` (polkit `org.freedesktop.systemd1.manage-units`, the administrator's password);
+disk use and limits come from Asima Maintenance's service, which owns the disk (D55). Each person's
+containers and virtual machine disks live in Btrfs subvolumes of their own (`~/.local/share/containers`,
+`~/.local/share/libvirt/images`, made at the first sign-in by the user service `asimaos-dev-storage`;
+disk images without copy-on-write), so they can be limited and stay out of the snapshots of `/home`.
 
 | Page | Shows | Acts through |
 | --- | --- | --- |
@@ -256,6 +261,7 @@ systemd's `StartUnit` (polkit `org.freedesktop.systemd1.manage-units`, the admin
 | Nix programs (D28) | Your Nix profile (`nix profile list`) and Nix's state | Install by name from nixpkgs (`nix profile install nixpkgs#NAME`), remove, update all (`nix profile upgrade --all`), free up space (`nix-collect-garbage --delete-older-than 30d`); `nix-command` and flakes are on in `/etc/nix/nix.conf` |
 | Graphics card for VMs | Every graphics card: the one showing the screen stays with Asima OS; a second one can be kept for VMs (warning when its IOMMU group holds other devices); "Give it …" when making a VM | `asimaos-passthrough-on@ADDRESS.service` / `asimaos-passthrough-off.service` through systemd (administrator's password): `/etc/asimaos/passthrough.conf`, the signed IOMMU add-on in the ESP's `loader/addons/`, unlimited locked memory for the person's services; `asimaos-passthrough-bind.service` hands the card to vfio-pci at every start; `71-asimaos-vfio.rules` gives the person its VFIO group; VMs get `<hostdev managed='no'>` |
 | Android apps (D28, D34) | Set up (downloads Android, about 1 GB), its progress, open Android, stop it, install an app file, remove Android with all its apps; a warning where only NVIDIA graphics draw Android in software | `asimaos-android-setup.service` (`waydroid init`, then its container at every start) and `asimaos-android-remove.service` through systemd; the rest as you (`waydroid` session) |
+| Disk use (D55) | How much your containers and virtual machines, the system's and Nix programs take, against a limit for each (Btrfs simple quotas, on from the installation); an area made before it was kept apart is counted with the home folder | A limit per area from 10 GB to 1 TB, or none: `Maintenance1.SetStorageLimit` (polkit `io.github.asimaos.maintenance.storage`, `btrfs qgroup limit`) |
 
 ## Asima OS Installer
 

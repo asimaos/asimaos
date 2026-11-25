@@ -17,6 +17,7 @@ qt_add_qml_module(asimaos-dev
         MachinesPage.qml
         NixPage.qml
         AndroidPage.qml
+        StoragePage.qml
 )
 
 target_link_libraries(asimaos-dev PRIVATE

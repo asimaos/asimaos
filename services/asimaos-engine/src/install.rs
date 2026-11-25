@@ -683,7 +683,9 @@ fn write_disk(
     Ok(())
 }
 
-/// A copy of the boot image in the pool (@slots/boot), so "Repair this computer" can rebuild the ESP.
+/// A copy of the boot image in the pool (@slots/boot), so "Repair this computer" can rebuild the ESP;
+/// and Btrfs simple quotas on, so each area's disk use is counted from the start and can be
+/// limited (D55, Asima Dev).
 fn keep_boot_image(o: &Opts, work: &Path, keyfile: &Path, version: &str, out: &Out) {
     let _ = ok("udevadm", &["settle"]);
     let Some(part) = common::part_of(&o.target, "crypt_pool").or_else(|| common::part_of(&o.target, "asimaos_pool"))
@@ -701,6 +703,9 @@ fn keep_boot_image(o: &Opts, work: &Path, keyfile: &Path, version: &str, out: &O
         let boot = top.join("@slots/boot");
         let _ = fs::create_dir_all(&boot);
         let _ = ok("chattr", &["+m", &top.join("@slots").to_string_lossy(), &boot.to_string_lossy()]);
+        if !ok("btrfs", &["quota", "enable", "--simple", &top.to_string_lossy()]) {
+            out.say("disk use per area isn't counted (Btrfs simple quotas could not be switched on)");
+        }
         if fs::copy(o.source.join(format!("uki/asimaos_{version}.efi")), boot.join(format!("asimaos_{version}.efi")))
             .is_err()
         {

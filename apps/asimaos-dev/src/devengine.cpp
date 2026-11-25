@@ -1,4 +1,5 @@
 #include "devengine.h"
+#include "serviceclient.h"
 #include "util.h"
 
 #include <QDBusConnection>
@@ -33,8 +34,17 @@ DevEngine::DevEngine(bool demo, QObject *parent)
         readNix();
         readAndroid();
         readPassthrough();
+        readStorage();
         return;
     }
+    const auto gb = [](double n) { return n * 1024 * 1024 * 1024; };
+    m_storage = item({{"available", true}, {"counted", true},
+        {"areas", QVariantList{
+            item({{"id", "containers:asha"}, {"person", "asha"}, {"separate", true}, {"used", gb(14.2)}, {"limit", gb(40)}}),
+            item({{"id", "vm:asha"}, {"person", "asha"}, {"separate", true}, {"used", gb(48.3)}, {"limit", gb(120)}}),
+            item({{"id", "nix"}, {"person", QVariant()}, {"separate", true}, {"used", gb(6.4)}, {"limit", QVariant()}}),
+            item({{"id", "containers"}, {"person", QVariant()}, {"separate", true}, {"used", gb(0.2)}, {"limit", QVariant()}}),
+            item({{"id", "vm"}, {"person", QVariant()}, {"separate", true}, {"used", gb(0.0)}, {"limit", QVariant()}})}}});
     setDemoAndroid(QString());
     m_passthrough = item({{"iommu", true}, {"kept", QString()},
         {"gpus", QVariantList{
@@ -654,4 +664,65 @@ void DevEngine::setDemoGpuReady()
     m_passthrough.insert("gpus", gpus);
     m_passthrough.insert("kept", QStringLiteral("0000:01:00"));
     emit changed();
+}
+
+// ───────────────────────────────────────────────────────────────────────── disk use and limits
+
+void DevEngine::readStorage()
+{
+    if (m_demo)
+        return;
+    if (!m_maintenance) {
+        m_maintenance = new ServiceClient(QStringLiteral("Maintenance1"), this);
+        connect(m_maintenance, &ServiceClient::failed, this, [this](const QString &message) { emit toast(message, QStringLiteral("error")); });
+    }
+    if (!m_maintenance->available()) {
+        m_storage = item({{"available", false}});
+        emit changed();
+        return;
+    }
+    m_maintenance->call(QStringLiteral("Storage"), {}, [this](const QDBusMessage &reply) {
+        const QJsonObject s = ServiceClient::json(reply);
+        const QString me = qEnvironmentVariable("USER");
+        QVariantList areas;
+        for (const QJsonValue &v : s.value(QStringLiteral("areas")).toArray()) {
+            const QJsonObject a = v.toObject();
+            const QString kind = a.value(QStringLiteral("id")).toString().section(QLatin1Char(':'), 0, 0);
+            const QString person = a.value(QStringLiteral("person")).toString();
+            // Containers, virtual machines and Nix: the system's, and this person's own.
+            if (!QStringList{QStringLiteral("containers"), QStringLiteral("vm"), QStringLiteral("nix")}.contains(kind)
+                || (!person.isEmpty() && person != me))
+                continue;
+            areas << a.toVariantMap();
+        }
+        // Yours first.
+        std::stable_sort(areas.begin(), areas.end(), [](const QVariant &x, const QVariant &y) {
+            return !x.toMap().value("person").toString().isEmpty() && y.toMap().value("person").toString().isEmpty();
+        });
+        m_storage = item({{"available", true}, {"counted", s.value(QStringLiteral("counted")).toBool()}, {"areas", areas}});
+        emit changed();
+    });
+}
+
+void DevEngine::setStorageLimit(const QString &area, double gb)
+{
+    const qulonglong bytes = gb <= 0 ? 0 : qulonglong(gb * 1024 * 1024 * 1024);
+    if (m_demo) {
+        QVariantList areas = m_storage.value("areas").toList();
+        for (QVariant &a : areas) {
+            QVariantMap m = a.toMap();
+            if (m.value("id").toString() == area)
+                m.insert("limit", bytes ? QVariant(double(bytes)) : QVariant());
+            a = m;
+        }
+        m_storage.insert("areas", areas);
+        emit changed();
+        return;
+    }
+    if (!m_maintenance || !m_maintenance->available())
+        return emit toast(tr("Disk limits need Asima Maintenance's service, which isn't available here."), QStringLiteral("info"));
+    m_maintenance->call(QStringLiteral("SetStorageLimit"), {area, QVariant::fromValue(bytes)}, [this, bytes](const QDBusMessage &) {
+        emit toast(bytes ? tr("The limit is set.") : tr("The limit is removed."), QStringLiteral("ok"));
+        readStorage();
+    });
 }

@@ -22,6 +22,7 @@ mod reset;
 mod schedule;
 mod security;
 mod status;
+mod storage;
 
 use anyhow::Context;
 use asimaos_svc::{polkit, snapshots, Root};
@@ -69,6 +70,26 @@ impl Maintenance {
 
     async fn run_health_check(&self) -> String {
         health::run(&self.root).await.to_string()
+    }
+
+    // ── Disk use and limits (D55) ──────────────────────────────────────────────
+
+    /// How much each area takes and its limit, as JSON: containers, virtual machines and Nix
+    /// programs (the system's and each person's), Flatpak apps, /home and /var. No password needed.
+    async fn storage(&self) -> String {
+        storage::status(&self.root).await.to_string()
+    }
+
+    /// A limit for one area ("nix", "vm", "containers:asha" …), in bytes; 0 removes it.
+    async fn set_storage_limit(
+        &self,
+        #[zbus(header)] header: Header<'_>,
+        #[zbus(connection)] conn: &Connection,
+        area: &str,
+        bytes: u64,
+    ) -> fdo::Result<()> {
+        self.auth(conn, &header, "io.github.asimaos.maintenance.storage").await?;
+        storage::set_limit(&self.root, area, bytes).await.map_err(failed)
     }
 
     // ── Snapshots and backups ──────────────────────────────────────────────────

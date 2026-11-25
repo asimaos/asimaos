@@ -27,7 +27,8 @@ B.ApplicationWindow {
           badge: vms.length > 0 ? String(vms.length) : "", badgeTone: "neutral" },
         { key: "nix", label: qsTr("Nix programs"), icon: "package",
           badge: (Backend.nix.programs || []).length > 0 ? String(Backend.nix.programs.length) : "", badgeTone: "neutral" },
-        { key: "android", label: qsTr("Android apps"), icon: "smartphone" }
+        { key: "android", label: qsTr("Android apps"), icon: "smartphone" },
+        { key: "storage", label: qsTr("Disk use"), icon: "drive-harddisk" }
     ]
 
     function navigate(key) { page = key }
@@ -95,6 +96,7 @@ B.ApplicationWindow {
                     case "machines": return machinesPage
                     case "nix": return nixPage
                     case "android": return androidPage
+                    case "storage": return storagePage
                     default: return containersPage
                     }
                 }
@@ -112,6 +114,7 @@ B.ApplicationWindow {
     Component { id: machinesPage; MachinesPage {} }
     Component { id: nixPage; NixPage {} }
     Component { id: androidPage; AndroidPage {} }
+    Component { id: storagePage; StoragePage {} }
 
     ConfirmDialog { id: confirmDialog }
     Toast { id: toast }

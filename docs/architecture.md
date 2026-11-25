@@ -72,6 +72,12 @@ build and the installer.
 | `@nix` | `/nix` | Each person's Nix programs (D28); made at the first start of a version that needs it |
 | `@snapshots` | `/run/asimaos-snapshots` (root only) and read-only at `/home/.snapshots` | Snapshots: `home/` and `data/` on the schedule set in Asima Maintenance, `update/<version>/` before every update |
 
+- **Disk use per area (D55):** the installer switches Btrfs simple quotas on, so what each subvolume
+  writes is counted from the start, and Asima Dev can limit containers, virtual machines and Nix
+  (`btrfs qgroup limit`, through `asimaos-maintenanced`). Each person's containers and virtual
+  machine disks are subvolumes of their own inside `@home` (`asimaos-dev-storage` at the first
+  sign-in), so they can be limited and stay out of the snapshots of `/home`; virtual machine disk
+  folders are written without copy-on-write (`chattr +C`).
 - **`@slots` is a writable subvolume mounted read-only:** deduplication tools skip read-only
   subvolumes, and `FIDEDUPERANGE` fails on immutable files. Slots are written only inside
   `asimaos-updaterd`'s private writable mount namespace.

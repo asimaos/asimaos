@@ -131,7 +131,7 @@ with_root_mounts chroot "${ROOT}" systemctl enable \
     virtqemud.socket virtqemud-ro.socket virtqemud-admin.socket virtnetworkd.socket virtnetworkd-ro.socket \
     virtstoraged.socket virtstoraged-ro.socket virtnodedevd.socket virtnodedevd-ro.socket \
     virtsecretd.socket virtsecretd-ro.socket virtlogd.socket virtlockd.socket
-with_root_mounts chroot "${ROOT}" systemctl --global enable podman.socket asimaos-desktop-check.service
+with_root_mounts chroot "${ROOT}" systemctl --global enable podman.socket asimaos-desktop-check.service asimaos-dev-storage.service
 # The system's virtual machines, networks, storage pools and secrets (qemu:///system) are defined
 # in @vm next to their disks (D53): libvirt's factory definitions, as the package ships them, move
 # to /usr, and the early mount binds /var/lib/libvirt/definitions/<folder> over the empty folders

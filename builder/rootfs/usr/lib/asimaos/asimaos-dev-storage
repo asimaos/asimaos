@@ -1,0 +1,41 @@
+#!/usr/bin/bash
+# Asima OS (D55): each person's containers (Podman) and virtual machine disks (Asima Dev's) live in
+# Btrfs subvolumes of their own, so Asima Dev can show and limit their disk use, and the daily
+# snapshots of /home leave them out. Run at each sign-in by the user service
+# asimaos-dev-storage.service; it only changes a folder that isn't a subvolume yet, and never while
+# containers or virtual machines run.
+#
+# Containers already made stay where they are (their files belong to the container's own users,
+# which only Podman can copy); a folder of virtual machine disks moves into its subvolume without
+# copying data (a reflink copy). New disk images are written without copy-on-write (chattr +C), as
+# virtual machine disks should be on Btrfs.
+set -uo pipefail
+log() { echo "asimaos-dev-storage: $*" >&2; }
+[[ $(stat -f -c %T "${HOME}" 2>/dev/null) == btrfs ]] || exit 0
+pgrep -u "${UID}" -x 'podman|conmon|crun|qemu-system-x86_64' >/dev/null && exit 0
+
+separate() {  # FOLDER [move] [nocow]
+    local d=$1 move=${2:-} nocow=${3:-} tmp
+    [[ $(stat -c %i "${d}" 2>/dev/null) == 256 ]] && return 0             # a subvolume already
+    if [[ -e ${d} && -n $(ls -A "${d}" 2>/dev/null) && ${move} != move ]]; then
+        return 0
+    fi
+    mkdir -p "$(dirname "${d}")"
+    tmp="${d}.asimaos-new"
+    [[ -e ${tmp} ]] && { rmdir "${tmp}" 2>/dev/null || { log "${tmp} is in the way"; return 0; }; }
+    btrfs subvolume create "${tmp}" >/dev/null 2>&1 || { log "no subvolume for ${d}"; return 0; }
+    if [[ -e ${d} ]]; then
+        if ! cp -a --reflink=always "${d}/." "${tmp}/"; then
+            rm -rf "${tmp:?}/"* "${tmp}"/.[!.]* 2>/dev/null; rmdir "${tmp}" 2>/dev/null
+            log "${d} stays as it is (it couldn't be moved without copying)"
+            return 0
+        fi
+        rm -rf "${d}"
+    fi
+    mv "${tmp}" "${d}"
+    [[ ${nocow} == nocow ]] && chattr +C "${d}" 2>/dev/null
+    log "${d} is a subvolume of its own"
+}
+separate "${HOME}/.local/share/containers"
+separate "${HOME}/.local/share/libvirt/images" move nocow
+exit 0
