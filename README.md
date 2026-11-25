@@ -35,13 +35,16 @@ version that doesn't start goes back to the one before it by itself.
 - **Your data is safe.** Snapshots of your files and settings (daily, weekly or monthly), encrypted
   backups with automatic restore tests, a recovery key made at install, and a disk guard that asks
   before any tool wipes the Asima OS disk.
-- **Every kind of app.** Flathub (with Discover), Snap, AppImage, Android apps (Waydroid), Nix and
-  containers with Distrobox. Only what must run natively is in the system itself.
-- **Ready for developers and gamers.** Podman, Distrobox and virtual machines, Nix, NTSYNC,
-  controller and handheld support, switched on for everyone.
-- **Asima OS apps, one job each.** Asima Updater, Asima Maintenance, Asima Manager, Asima Gaming
-  and Asima Dev, plus the installer and Asima Rescue: Qt 6 apps, each with its own Rust system
-  service. The `asimaos` command does the same jobs in a terminal.
+- **Every kind of app.** Asima App Center has Flatpak, Snap and AppImage apps, Android apps
+  (Waydroid), Windows programs (Bottles), containers, and developer tools from Nix, Homebrew, PyPI,
+  npm, crates.io, Go and Conda, by purpose; Discover is there too. Only what must run natively is in
+  the system itself.
+- **Ready for developers and gamers.** Podman, Distrobox and virtual machines with disk limits, Nix,
+  NTSYNC, controllers of every kind, handhelds, and game mode in gamescope, switched on for
+  everyone.
+- **Asima OS apps, one job each.** Asima Updater, Asima Maintenance, Asima Manager, Asima Gaming,
+  Asima Dev and Asima App Center, plus the installer and Asima Rescue: Qt 6 apps, with Rust system
+  services where they need root. The `asimaos` command does the same jobs in a terminal.
 - **Plain KDE.** The desktop is KDE Plasma with its standard look, everything you can change in
   System Settings included. Asima OS's own design is only where nothing needs changing: the
   start-up screen, which asks for the disk passphrase in your keyboard layout, and the Asima apps.
@@ -56,7 +59,7 @@ version that doesn't start goes back to the one before it by itself.
 | ![The installer's welcome page](docs/screenshots/asimaos-installer-welcome-dark.png) | ![Asima Updater with an update file checked](docs/screenshots/asimaos-updater-updates-ready-light.png) |
 | ![Asima Maintenance: overview](docs/screenshots/asimaos-maintenance-overview-dark.png) | ![Asima Manager on a handheld](docs/screenshots/asimaos-manager-home-light.png) |
 | ![Asima Gaming: controllers](docs/screenshots/asimaos-gaming-controllers-dark.png) | ![Asima Dev: containers](docs/screenshots/asimaos-dev-containers-light.png) |
-| ![Asima Dev: Android apps](docs/screenshots/asimaos-dev-android-light.png) | ![Asima Rescue](docs/screenshots/asimaos-rescue-home-dark.png) |
+| ![Asima App Center: apps by purpose and kind](docs/screenshots/asimaos-appcenter-store-light.png) | ![Asima Rescue](docs/screenshots/asimaos-rescue-home-dark.png) |
 | ![The Asima OS password dialog, with fingerprint and face](docs/screenshots/asimaos-polkit-agent-dialog-light.png) | ![Asima Dev: virtual machines](docs/screenshots/asimaos-dev-machines-dark.png) |
 
 Every screen, in light and dark: `apps/build.sh screenshots`.
