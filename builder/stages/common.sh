@@ -70,4 +70,25 @@ sign_outputs() {
     grep Fingerprint "${OUT}/asimaos-release-key.txt"
 }
 
+# Updates that skip versions (D52): an update file and the USB stick's repair install on versions
+# from the past year (MIN_FROM, ASIMAOS_UPDATE_WINDOW) and carry every migration step newer than
+# that, up to this version (builder/migrations/<version>-<name>.sh). Sets MIN_FROM and STEPS
+# (the files, in no particular order: the system sorts them).
+version_newer() { [[ $1 != "$2" && $(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n 1) == "$1" ]]; }
+migration_steps() {
+    local f n sv
+    MIN_FROM="$(date -u -d "$(tr . - <<<"${V%.*}") -${ASIMAOS_UPDATE_WINDOW}" +%Y.%m.%d).1"
+    STEPS=()
+    for f in "${WORK}"/builder/migrations/*; do
+        n=${f##*/}
+        [[ ${n} == README.md ]] && continue
+        [[ ${n} =~ ^([0-9]+(\.[0-9]+){1,5})-[A-Za-z0-9._+-]+\.sh$ ]] \
+            || die "a migration step's name must be <version>-<name>.sh: ${n}"
+        sv=${BASH_REMATCH[1]}
+        if version_newer "${sv}" "${MIN_FROM}" && ! version_newer "${sv}" "${V}"; then
+            STEPS+=("${f}")
+        fi
+    done
+}
+
 mkdir -p "${BUILD}" "${OUT}"

@@ -37,6 +37,8 @@ done
 "$AOSUPD" boot promote --esp "$ESP" --version 2026.11.01.2 >/dev/null && bless current
 "$AOSUPD" boot promote --esp "$ESP" --version 2026.11.15.1 >/dev/null && bless current
 "$AOSUPD" keygen "$T/release" && cp "$T/release.pub" "$ROOT/usr/share/asimaos/keys/release.pub"
+# Its first start notes the version its settings are in; a fresh system runs no steps.
+"$BIN" --root "$ROOT" --run-migrations >/dev/null
 "$AOSUPD" keygen "$T/other"
 
 # make_update VERSION OUT [KEY] [extra pack options…]
@@ -51,11 +53,15 @@ make_update() {
     echo "rescue $v" > "$d/asimaos-rescue.efi"
     echo "shim $v" > "$d/shimx64.efi"
     echo "mm $v" > "$d/mmx64.efi"
-    printf 'echo migrated > %s\n' "$T/migrated" > "$d/10-example.sh"
+    # Migration steps (D52): one newer than the settings of the computer below, one older.
+    printf 'echo migrated >> %s\n' "$T/migrated" > "$d/2026.11.20.1-example.sh"
+    printf 'echo old >> %s\n' "$T/migrated-old" > "$d/2026.11.10.1-older.sh"
+    echo 2026.11.01.1 > "$d/steps-from"
     "$AOSUPD" pack --key "$key" --version "$v" --expires 2099-12-31 \
         --slot "$d/usr_$v.erofs" --slot "$d/verity_$v.img" --uki "$d/asimaos_$v.efi" --notes "$d/NOTES" \
         --bootloader "$d/systemd-bootx64.efi" --shim "$d/shimx64.efi" --shim "$d/mmx64.efi" \
-        --rescue "$d/asimaos-rescue.efi" --migration "$d/10-example.sh" "$@" -o "$out"
+        --rescue "$d/asimaos-rescue.efi" --migration "$d/2026.11.20.1-example.sh" \
+        --migration "$d/2026.11.10.1-older.sh" --migration "$d/steps-from" "$@" -o "$out"
     rm -rf "$d"
 }
 make_update 2026.12.01.1 "$T/good.aosupd"
@@ -117,6 +123,12 @@ check "…and the new shim with its MokManager"    '[[ $(<$ESP/EFI/BOOT/BOOTX64.
 check "…and the new Rescue, in the start menu"   '[[ $(<$ESP/EFI/Asima/asimaos-rescue.efi) == "rescue 2026.12.01.1" ]] && grep -q "Asima Rescue" $ESP/loader/entries/asimaos-rescue.conf'
 "$BIN" --root "$ROOT" --run-migrations >/dev/null; rm -f "$T/migrated"; "$BIN" --root "$ROOT" --run-migrations >/dev/null
 check "migrations run once"                      '[[ ! -e $T/migrated && -f $ROOT/var/lib/asimaos/migrations/2026.12.01.1 ]]'
+check "…only those newer than the settings' version" '[[ ! -e $T/migrated-old && $(<$ROOT/var/lib/asimaos/state-version) == 2026.12.01.1 && ! -e $ROOT/var/lib/asimaos/settings-behind ]]'
+# Settings older than the steps reach (more than a year skipped, through Rescue or the repair).
+echo 2026.10.01.1 > "$ROOT/var/lib/asimaos/state-version"; rm -rf "$ROOT/var/lib/asimaos/migrations/steps"
+"$BIN" --root "$ROOT" --run-migrations >/dev/null
+check "…older settings: every step runs, and Maintenance is told" '[[ -e $T/migrated && -e $T/migrated-old && $(<$ROOT/var/lib/asimaos/settings-behind) == "2026.10.01.1 2026.11.01.1" ]]'
+rm -f "$T/migrated" "$T/migrated-old" "$ROOT/var/lib/asimaos/settings-behind"
 
 # ── going back by hand swaps current and backup; going forward again swaps back
 call SetDefaultVersion sb 2026.11.15.1 false >/dev/null

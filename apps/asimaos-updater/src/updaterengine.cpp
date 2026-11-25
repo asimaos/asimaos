@@ -334,7 +334,9 @@ void UpdaterEngine::selectUpdateFile(const QUrl &file)
         if (signature)
             checks << check(tr("Signed by Asima OS"), tr("Release key"), true, tr("Valid"));
         else if (refused == QLatin1String("not-signed"))
-            checks << check(tr("Signed by Asima OS"), problems.value(0), false, tr("Invalid"));
+            checks << check(tr("Signed by Asima OS"),
+                            tr("Not signed with a release key this system knows. An update made after a change of the key installs with “Repair this computer” on the USB stick, which keeps your files."),
+                            false, tr("Invalid"));
         else
             checks << check(tr("Signed by Asima OS"), tr("Not checked"), false, tr("Unknown"));
         if (refused == QLatin1String("damaged"))
@@ -346,7 +348,7 @@ void UpdaterEngine::selectUpdateFile(const QUrl &file)
             if (failed.contains(QLatin1String("arch")))
                 checks << check(tr("Made for this computer"), why(QStringLiteral("arch")), false, tr("Wrong type"));
             if (failed.contains(QLatin1String("min-from")))
-                checks << check(tr("Newer than this system"), why(QStringLiteral("min-from")), false, tr("Too early"));
+                checks << check(tr("Installs on this version"), why(QStringLiteral("min-from")), false, tr("Too old"));
             else if (sameVersion)
                 checks << check(tr("The version running now"), tr("Writes a fresh copy of %1").arg(ver), true, tr("Same"));
             else

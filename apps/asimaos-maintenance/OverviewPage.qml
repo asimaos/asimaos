@@ -276,7 +276,14 @@ DPage {
         Layout.fillWidth: true
         tone: "info"
         title: qsTr("Asima Hub")
-        text: qsTr("Downloads updates, opens the guides and the wiki, shows what's new, and sends a problem report when you choose to. It's a separate app: install it once from Discover.")
-        DButton { text: qsTr("Get Asima Hub"); variant: "secondary"; iconName: "plasmadiscover"; onClicked: Backend.openHub() }
+        text: Backend.flatpak.hub
+              ? qsTr("Downloads updates, opens the guides and the wiki, shows what's new, and sends a problem report when you choose to.")
+              : qsTr("Downloads updates, opens the guides and the wiki, shows what's new, and sends a problem report when you choose to. It's a separate app: download it once, then open the file to install it.")
+        DButton {
+            text: Backend.flatpak.hub ? qsTr("Open Asima Hub") : qsTr("Get Asima Hub")
+            variant: "secondary"
+            iconName: Backend.flatpak.hub ? "applications-internet" : "download"
+            onClicked: Backend.openHub()
+        }
     }
 }

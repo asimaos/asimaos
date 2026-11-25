@@ -20,6 +20,9 @@ pub async fn status(root: &Root, pool: &str) -> Value {
             .map(String::from)
             .collect::<Vec<_>>(),
         "version": system::running_version(root),
+        // "FROM STEPS_FROM" when the settings come from a version older than the last update's
+        // migration steps reach (D52).
+        "settingsBehind": std::fs::read_to_string(root.path(etc::SETTINGS_BEHIND)).ok().map(|s| s.trim().to_string()),
         "storage": {
             "total": asimaos_svc::total_bytes(&home),
             "free": asimaos_svc::free_bytes(&home),

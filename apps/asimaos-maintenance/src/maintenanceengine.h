@@ -98,7 +98,7 @@ public:
     Q_INVOKABLE void makeReport();
     Q_INVOKABLE bool saveReport(const QString &text, const QUrl &file);
     Q_INVOKABLE void copyText(const QString &text);
-    // Asima Hub (the online app): its page in Discover.
+    // Asima Hub (the online app): opens it, or its download when it isn't installed (D54).
     Q_INVOKABLE void openHub();
     Q_INVOKABLE void runHealthCheck();
     // Security (D10, D16). Secrets are passed straight on to asimaos-maintenanced and never kept.

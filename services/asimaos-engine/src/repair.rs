@@ -350,6 +350,17 @@ fn install_stick(src: &Path, v: &str, slots: &Path, top: &Path, keep: &[String],
     }
     fs::create_dir_all(slots.join("boot"))?;
     fs::copy(&uki, slots.join(format!("boot/asimaos_{v}.efi")))?;
+    // The stick's migration steps (D52), as an update file brings them: the new version's first
+    // start runs those newer than the version the settings come from.
+    let steps = src.join("migrations");
+    if steps.is_dir() {
+        let staged = slots.join("staged").join(v).join("migrations");
+        let _ = fs::remove_dir_all(&staged);
+        fs::create_dir_all(&staged)?;
+        for e in fs::read_dir(&steps)?.flatten().filter(|e| e.path().is_file()) {
+            fs::copy(e.path(), staged.join(e.file_name()))?;
+        }
+    }
     out.say(&format!(
         "Asima OS {v} is installed next to {}; files and settings stay",
         keep.get(1).map_or("nothing else", |s| s.as_str())

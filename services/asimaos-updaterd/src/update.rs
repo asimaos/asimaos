@@ -77,7 +77,14 @@ pub fn assess(m: &asimaos_update::Manifest, facts: &Facts, test_mode: bool, rein
     }
     if let Some(min) = &m.min_from {
         if !reinstall && version::newer(min, &facts.running) {
-            add("min-from", format!("This update needs Asima OS {min} or newer first."));
+            // More than a year of versions skipped (D52): the steps that bring the settings up to
+            // date are no longer in the file.
+            add(
+                "min-from",
+                format!(
+                    "This update installs on Asima OS {min} or newer. Install it with Asima Rescue or with \"Repair this computer\" on the USB stick: both keep your files."
+                ),
+            );
         }
     }
     if let Some(e) = &m.expires {
@@ -389,23 +396,82 @@ pub fn finish(root: &Root, running: &str) -> Result<Vec<String>> {
     Ok(done)
 }
 
-/// Migration steps of the running version, once, in name order. They must keep the previous
-/// version working too, because going back reuses the same /etc and /var.
+/// The version the system's settings (/etc and /var) are in: written at the first start of a
+/// fresh installation or reset, and after an update's migration steps (D52). Going back to the
+/// snapshot from before an update brings the earlier one back with /var.
+pub const STATE_VERSION: &str = "/var/lib/asimaos/state-version";
+/// Written when the settings come from a version older than the oldest step the update carried
+/// (more than a year skipped, through Asima Rescue or the USB stick's repair): the steps it had
+/// were run, and Asima Maintenance suggests Reset settings.
+pub const SETTINGS_BEHIND: &str = "/var/lib/asimaos/settings-behind";
+/// In an update's migration steps: the oldest version they bring up to date (its `MIN_FROM`).
+pub const STEPS_FROM: &str = "steps-from";
+
+/// The version a migration step belongs to: its name starts with it (`2026.12.10.1-name.sh`).
+pub fn step_version(name: &str) -> Option<&str> {
+    let v = name.split_once('-')?.0;
+    version::valid(v).then_some(v)
+}
+
+/// The one-time migration steps an update brought, early in the new version's first start (D52):
+/// every step newer than the version the settings come from, up to the running one, in version
+/// order, each once. They must keep the previous version working too, because going back reuses
+/// the same /etc and /var. A fresh installation or reset needs none: its settings are already the
+/// running version's. Returns the number of steps run.
 pub fn run_migrations(root: &Root, running: &str) -> Result<usize> {
-    let dir = root.path(SLOTS).join("staged").join(running).join("migrations");
-    let marker = root.path(MIGRATIONS_DONE).join(running);
-    if !dir.is_dir() || marker.exists() {
+    let state = root.path(STATE_VERSION);
+    let Some(from) = fs::read_to_string(&state).ok().map(|s| s.trim().to_string()).filter(|s| version::valid(s)) else {
+        write_state(root, running)?;
+        return Ok(0);
+    };
+    // Settings of a newer version (going back by hand) stay as they are.
+    if !version::newer(running, &from) {
         return Ok(0);
     }
-    let mut steps: Vec<PathBuf> = fs::read_dir(&dir)?.flatten().map(|e| e.path()).filter(|p| p.is_file()).collect();
-    steps.sort();
-    for s in &steps {
-        let ok = std::process::Command::new("/usr/bin/bash").arg(s).status().map(|st| st.success()).unwrap_or(false);
-        anyhow::ensure!(ok, "migration step {} failed", s.display());
+    let dir = root.path(SLOTS).join("staged").join(running).join("migrations");
+    let mut steps: Vec<(String, PathBuf)> = fs::read_dir(&dir)
+        .map(|rd| rd.flatten().map(|e| (e.file_name().to_string_lossy().into_owned(), e.path())).collect())
+        .unwrap_or_default();
+    steps.retain(|(name, path)| {
+        path.is_file()
+            && step_version(name).is_some_and(|v| version::newer(v, &from) && !version::newer(v, running))
+    });
+    steps.sort_by(|a, b| {
+        let (va, vb) = (step_version(&a.0).unwrap_or_default(), step_version(&b.0).unwrap_or_default());
+        version::compare(va, vb).unwrap_or(std::cmp::Ordering::Equal).then_with(|| a.0.cmp(&b.0))
+    });
+    let done = root.path(MIGRATIONS_DONE).join("steps");
+    fs::create_dir_all(&done)?;
+    let mut ran = 0;
+    for (name, path) in &steps {
+        // A step that finished before an interrupted start is not run twice.
+        if done.join(name).exists() {
+            continue;
+        }
+        let ok = std::process::Command::new("/usr/bin/bash").arg(path).status().map(|st| st.success()).unwrap_or(false);
+        anyhow::ensure!(ok, "migration step {name} failed");
+        fs::write(done.join(name), format!("{running}\n"))?;
+        ran += 1;
     }
-    fs::create_dir_all(marker.parent().unwrap())?;
-    fs::write(&marker, format!("{}\n", steps.len()))?;
-    Ok(steps.len())
+    // The oldest version these steps bring up to date: settings older than that skipped steps
+    // this update no longer carries.
+    let steps_from = fs::read_to_string(dir.join(STEPS_FROM)).ok().map(|s| s.trim().to_string());
+    if let Some(w) = steps_from.filter(|w| version::valid(w) && version::newer(w, &from)) {
+        fs::write(root.path(SETTINGS_BEHIND), format!("{from} {w}\n"))?;
+    }
+    // Asima OS uses this mark to put the settings back if this version fails (finish).
+    if ran > 0 {
+        fs::write(root.path(MIGRATIONS_DONE).join(running), format!("{ran}\n"))?;
+    }
+    write_state(root, running)?;
+    Ok(ran)
+}
+
+fn write_state(root: &Root, running: &str) -> Result<()> {
+    let state = root.path(STATE_VERSION);
+    fs::create_dir_all(state.parent().unwrap())?;
+    fs::write(&state, format!("{running}\n"))?;
+    Ok(())
 }
 
 /// Settings files whose factory default changed with this version while the person had their own

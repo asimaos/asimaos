@@ -28,9 +28,18 @@ RESCUE=()
 SHIMPARTS=()
 [[ -f ${OUT}/shim/shimx64.efi && -f ${OUT}/shim/mmx64.efi ]] && SHIMPARTS=(--shim "${OUT}/shim/shimx64.efi" --shim "${OUT}/shim/mmx64.efi")
 
+# Updates that skip versions (D52): the steps since MIN_FROM, and MIN_FROM itself for the
+# system (steps-from), so it can tell when its settings are older than that.
+migration_steps
+step "Migration steps for versions since ${MIN_FROM}: ${#STEPS[@]}"
+MIGRATIONS=()
+for f in "${STEPS[@]}"; do MIGRATIONS+=(--migration "${f}"); echo "  ${f##*/}"; done
+echo "${MIN_FROM}" > "${BUILD}/steps-from"
+MIGRATIONS+=(--migration "${BUILD}/steps-from")
+
 step "Packing ${OUTFILE##*/} (zstd, Ed25519 key of this build)"
 "${AOSUPD}" pack --key "${BUILD}/keys/release.key" --version "${V}" --channel "${CHANNEL}" \
-    --expires "$(date -u -d '+120 days' +%F)" \
+    --expires "$(date -u -d '+120 days' +%F)" --min-from "${MIN_FROM}" "${MIGRATIONS[@]}" \
     --slot "${OUT}/usr_${V}.erofs" --slot "${OUT}/verity_${V}.img" --uki "${OUT}/asimaos_${V}.efi" \
     --bootloader "${BOOTLOADER}" "${SHIMPARTS[@]}" "${RESCUE[@]}" --notes "${BUILD}/NOTES" \
     -o "${OUTFILE}"

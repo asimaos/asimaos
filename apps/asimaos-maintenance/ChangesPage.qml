@@ -35,6 +35,17 @@ DPage {
         }
     ]
 
+    // Updates that skip versions (D52): after more than a year without updates, Asima Rescue or
+    // the USB stick's repair installed this version, and some settings may be older than its
+    // migration steps reach.
+    InfoBanner {
+        visible: !!Backend.system.settingsBehind
+        Layout.fillWidth: true
+        tone: "warn"
+        title: qsTr("Some settings come from an older Asima OS")
+        text: qsTr("This computer went from Asima OS %1 straight to %2, more than a year of versions at once. If something doesn't work as it should, Reset settings brings every setting up to date; your files stay.").arg(Backend.system.settingsBehind || "").arg(Backend.system.version || "")
+    }
+
     // For everyone: every setting back to this version's defaults in one step. The list of files
     // below stays for those who want to pick.
     Card {

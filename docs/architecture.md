@@ -295,9 +295,16 @@ files and settings kept, updates from then on with the stick's key.
    and backup; "Start it once" starts the backup at the next start only (`bootctl set-oneshot`); a
    failed update can be tried again. Asima Rescue can start the backup once too. Going back never
    touches `/home`.
-9. **Migration steps:** an update can carry one-time steps for `/etc`, `/var`, the ESP and the
-   subvolumes; `asimaos-migrate.service` runs them once, early in the new version's first start. They
-   must keep the previous version working, because going back reuses the same state. **Settings go
+9. **Migration steps, also across skipped versions (D52):** an update carries the one-time steps
+   for `/etc`, `/var`, the ESP and the subvolumes of its whole window: every step newer than its
+   `MIN_FROM` (one year before it) up to its own version (`builder/migrations/<version>-<name>.sh`).
+   Early in the new version's first start `asimaos-migrate.service` runs the steps newer than the
+   version the settings are in (`/var/lib/asimaos/state-version`, noted at the first start of a fresh
+   installation or reset, which needs no steps), each once, in version order. They must keep the
+   previous version working, because going back reuses the same state. A computer older than
+   `MIN_FROM`, or one that missed a change of the release key, updates through Asima Rescue or the
+   USB stick's "Repair this computer", which brings the same steps; when its settings are older than
+   they reach, Asima Maintenance → System changes suggests Reset settings. **Settings go
    back with a failed update:** when the backup takes over after an update whose migration steps ran,
    `asimaos-finish-update` marks it (`@data/flags/rollback`), and at the next start the early mount
    puts the `/etc` changes and `@var` back from the snapshot taken before the update, keeping the

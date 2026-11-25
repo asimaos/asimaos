@@ -58,6 +58,12 @@ install -m 0755 "${WORK}/engines/asimaos-repair" "${ISO_ROOT}/asimaos/asimaos-re
 [[ -x ${ENGINE} ]] || die "build/services has no asimaos-engine: run apps/build.sh dist first"
 install -m 0755 "${ENGINE}" "${ISO_ROOT}/asimaos/asimaos-engine"
 echo "${V}" > "${ISO_ROOT}/asimaos/VERSION"
+# The migration steps an update file would carry (D52), for "Repair this computer" when it
+# installs this stick's version on a computer whose settings come from an older one.
+migration_steps
+mkdir -p "${ISO_ROOT}/asimaos/migrations"
+((${#STEPS[@]})) && cp "${STEPS[@]}" "${ISO_ROOT}/asimaos/migrations/"
+echo "${MIN_FROM}" > "${ISO_ROOT}/asimaos/migrations/steps-from"
 # Every program on this disc, its licences and where its sources are.
 cp -r "${ROOT}/usr/share/asimaos/licences" "${ISO_ROOT}/licences"
 

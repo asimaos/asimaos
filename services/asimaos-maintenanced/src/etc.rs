@@ -15,6 +15,9 @@ use std::path::Path;
 pub const UPPER: &str = "/run/initramfs/data/overlay/etc/upper";
 pub const LIST: &str = "/run/initramfs/data/flags/restore-etc";
 pub const RESET_LIST: &str = "/run/initramfs/data/flags/reset-settings-etc";
+/// Written by asimaos-updaterd when the settings came from a version older than an update's
+/// migration steps reach (D52): Asima Maintenance then suggests Reset settings.
+pub const SETTINGS_BEHIND: &str = "/var/lib/asimaos/settings-behind";
 pub const RESET_PEOPLE: &str = "/run/initramfs/data/flags/reset-settings";
 /// A copy of /etc's changes from before each reset (root only); the newest three are kept.
 pub const OLD_SETTINGS: &str = "/run/initramfs/data/old-settings";
@@ -222,6 +225,8 @@ pub async fn schedule_reset(root: &Root, person: &str) -> Result<usize> {
         Ok(())
     };
     write(RESET_LIST, plan.iter().map(|l| format!("{l}\n")).collect())?;
+    // Settings from a version more than a year older (D52) are this version's again afterwards.
+    let _ = std::fs::remove_file(root.path(SETTINGS_BEHIND));
     let mut people: Vec<String> =
         std::fs::read_to_string(root.path(RESET_PEOPLE)).unwrap_or_default().lines().map(String::from).collect();
     if !people.iter().any(|p| p == person) {

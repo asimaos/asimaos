@@ -91,6 +91,8 @@ void MaintenanceEngine::refreshFromService()
 void MaintenanceEngine::applyServiceStatus(const QJsonObject &s)
 {
     m_system.insert("version", s.value("version").toString());
+    // The settings came from a version older than the last update's migration steps reach (D52).
+    m_system.insert("settingsBehind", s.value("settingsBehind").toString().section(QLatin1Char(' '), 0, 0));
     m_bootOrder = s.value("bootOrder").toObject().toVariantMap();
     emit bootOrderChanged();
 
@@ -547,6 +549,7 @@ void MaintenanceEngine::readFlatpak()
               .split(QLatin1Char('\n'), Qt::SkipEmptyParts)
         : QStringList();
     m_flatpak = item({{"apps", int(apps.size())}, {"size", -1.0}, {"unused", -1.0}});
+    m_flatpak.insert("hub", apps.contains(QStringLiteral("io.github.asimaos.Hub")));
 }
 
 // ───────────────────────────────────────────────────────────────────────── actions
@@ -734,8 +737,18 @@ void MaintenanceEngine::copyText(const QString &text)
 
 void MaintenanceEngine::openHub()
 {
-    if (m_demo || !QDesktopServices::openUrl(QUrl(QStringLiteral("appstream://io.github.asimaos.Hub"))))
-        emit toast(tr("Opens Asima Hub's page in Discover."), QStringLiteral("info"));
+    // Installed: open it. Otherwise its always-latest download on GitHub Releases, as Asima
+    // Manager offers it (D54); opening the downloaded file installs it with Discover.
+    if (m_flatpak.value("hub").toBool()) {
+        if (m_demo || !QProcess::startDetached(QStringLiteral("flatpak"), {QStringLiteral("run"), QStringLiteral("io.github.asimaos.Hub")}))
+            emit toast(tr("Opens Asima Hub."), QStringLiteral("info"));
+        return;
+    }
+    static const QUrl latest(QStringLiteral("https://github.com/asimaos/asimaos-hub/releases/latest/download/AsimaHub-x86_64.flatpak"));
+    if (m_demo || !QDesktopServices::openUrl(latest))
+        emit toast(tr("Opens the download of Asima Hub in the browser."), QStringLiteral("info"));
+    else
+        emit toast(tr("The browser downloads Asima Hub. Open the file to install it with Discover."), QStringLiteral("info"));
 }
 
 void MaintenanceEngine::runHealthCheck()

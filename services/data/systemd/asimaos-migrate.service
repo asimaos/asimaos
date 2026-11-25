@@ -1,13 +1,15 @@
 [Unit]
-Description=Asima OS: migration steps of a new version (once, at its first start)
+Description=Asima OS: migration steps of a new version (each once, at its first start)
 Documentation=file:///usr/share/doc/asimaos/DESIGN.md
 # After /etc, /var and the early system setup, before the usual services start, so they find
-# their files in the new version's shape.
+# their files in the new version's shape. It runs at every start of an installed system: the
+# first start of a fresh installation or reset only notes the version its settings are in
+# (D52); after an update it runs the steps newer than that, then returns at once.
 DefaultDependencies=no
 After=sysinit.target local-fs.target
 Before=basic.target shutdown.target
 Conflicts=shutdown.target
-ConditionPathIsDirectory=/run/initramfs/slots/staged
+ConditionPathIsDirectory=/run/initramfs/slots
 
 [Service]
 Type=oneshot
