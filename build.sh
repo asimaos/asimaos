@@ -19,6 +19,9 @@ sed "s|@ARCHIVE_DATE@|${ASIMAOS_ARCHIVE_DATE}|g" builder/pacman.conf.in > builde
 for m in ${ASIMAOS_CACHE_SERVERS:-}; do
     sed -i "/^\[\(core\|extra\)\]\$/a CacheServer = ${m}/\$repo/os/\$arch" builder/pacman.conf
 done
+# ASIMAOS_SLOW_NETWORK=1 (local.conf): pacman waits out a download that stalls, instead of giving up
+# after 10 seconds without data.
+[[ ${ASIMAOS_SLOW_NETWORK:-} == 1 ]] && sed -i '/^\[options\]$/a DisableDownloadTimeout' builder/pacman.conf
 cp builder/pacman.conf build/pacman.conf
 
 if ! podman image exists "${IMAGE}"; then

@@ -28,7 +28,9 @@ folder for SELinux (`:Z`), which cuts off a container that is already running.
   archive is slow from where you build, `ASIMAOS_CACHE_SERVERS="https://MIRROR/archlinux …"` names
   ordinary Arch mirrors that pacman asks first for package files (`CacheServer`); the package lists
   stay the snapshot's, every file is still checked against the snapshot's checksums and signatures,
-  and what a mirror no longer has comes from the archive.
+  and what a mirror no longer has comes from the archive. On a line that stalls now and then,
+  `ASIMAOS_SLOW_NETWORK=1` makes pacman wait out a stalled download instead of giving up after
+  10 seconds without data (`DisableDownloadTimeout`).
 - **`build/keys/`** is made on the first build. It never goes into any repository (D25); keep it
   in an encrypted backup:
   - `release.key` / `release.pub`: Ed25519, signs the update files. An installed system only
