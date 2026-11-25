@@ -92,6 +92,19 @@ impl Maintenance {
         storage::set_limit(&self.root, area, bytes).await.map_err(failed)
     }
 
+    /// Flatpak repair (D55) of the system's installation: every installed app and runtime is
+    /// checked, broken objects are removed and what is missing is downloaded again. Returns
+    /// Flatpak's report. (Each person's own installation is repaired without root.)
+    async fn repair_flatpak(
+        &self,
+        #[zbus(header)] header: Header<'_>,
+        #[zbus(connection)] conn: &Connection,
+    ) -> fdo::Result<String> {
+        self.auth(conn, &header, "io.github.asimaos.maintenance.flatpak").await?;
+        let out = asimaos_svc::cmd::run("flatpak", &["repair", "--system"]).await.map_err(failed)?;
+        Ok(out.stdout)
+    }
+
     // ── Snapshots and backups ──────────────────────────────────────────────────
 
     /// A snapshot of /home now (also taken every night). Returns its name.

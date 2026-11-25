@@ -40,6 +40,11 @@
     <message>Setting a disk limit needs your password</message>
     <defaults><allow_any>auth_admin</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
   </action>
+  <action id="io.github.asimaos.maintenance.flatpak">
+    <description>Repair the apps installed for everyone</description>
+    <message>Repairing the installed apps needs your password</message>
+    <defaults><allow_any>auth_admin</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
   <action id="io.github.asimaos.maintenance.report">
     <description>Make a problem report</description>
     <message>A problem report reads the system's logs and needs your password</message>

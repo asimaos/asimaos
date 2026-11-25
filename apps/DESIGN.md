@@ -157,6 +157,7 @@ Looking after the installed system.
 | `RestoreEtc(s path)` (applied at the next start, never while /etc is mounted; account files are protected) | method | `io.github.asimaos.maintenance.etc` (auth_admin) |
 | `StartAsimaFirst()` (the entry this start came from goes first in `BootOrder`) | method | `io.github.asimaos.maintenance.boot` (auth_admin_keep) |
 | `Storage() → s` (no password) / `SetStorageLimit(s area, t bytes)` (0: none) | method | the areas' use and limits (D55: containers, VMs, Nix, Flatpak, `/home`, `/var`; `containers:NAME`, `vm:NAME` for a person's); limits: `io.github.asimaos.maintenance.storage` (auth_admin_keep), simple quotas switched on first when they are off |
+| `RepairFlatpak() → s` | method | `io.github.asimaos.maintenance.flatpak` (auth_admin_keep): `flatpak repair --system`, its report (D55; Asima App Center's Flatpak tools) |
 | `ResetSettings() → u` ("Reset settings" for the caller, a person's account: schedules it, restarts; returns how many `/etc` entries are reset) | method | `io.github.asimaos.maintenance.etc` (auth_admin) |
 | `PrepareFactoryReset(s json fresh) → s` / `CancelFactoryReset()` / `ScheduleFactoryReset()` | method | `io.github.asimaos.maintenance.reset` (auth_admin, no keep): stages the fresh account and new disk secrets, then the initramfs wipes and rebuilds |
 
