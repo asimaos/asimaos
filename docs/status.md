@@ -104,7 +104,7 @@ Gates prove the risky mechanics before the parts that depend on them are built.
 | --- | --- | --- | --- |
 | OS-Test-1 | One shared UKI opens the pool | The same signed UKI opens the pool on the disk it started from, with TRIM allowed: encrypted `crypt_pool`, or plain `asimaos_pool` (D9) | ✅ in QEMU: encrypted with discards (every boot test) and plain (`--iso --plain`) |
 | OS-Test-2 | Both Secure Boot paths | Path B (Microsoft-signed shim + Asima OS key, the default, D16) and Path A (own keys) both start on firmware that trusts only the 2023 Microsoft CAs | 🟢 beta 5 in QEMU: shim → systemd-boot → UKI on firmware that trusts only the 2023 CA (Fedora's shim is signed with both CAs), the Asima OS key as a MOK; the blue MokManager screen by hand on a real PC (beta 5, [section 9](#9-on-real-hardware)); Path A (own keys in the firmware, Asima Maintenance → Security) built, its VM test (`--own-keys`) runs with the next build |
-| OS-Test-3 | TPM unlock | The systemd-pcrlock policy (PCR 4 + 7, D43) unlocks the pool, keeps doing so after an update, and never opens it for Asima Rescue | 🟢 QEMU (2026.11.24.1: the TPM opened the disk with no passphrase, Rescue can't); on the owner's PC with the next build. It replaced the signed PCR 11 policy, which never passed on the owner's PC |
+| OS-Test-3 | TPM unlock | The systemd-pcrlock policy (PCR 4 + 7, D43) unlocks the pool, keeps doing so after an update, and never opens it for Asima Rescue | 🟢 QEMU (2026.11.25.1: the TPM opens the disk with no passphrase, with a PIN too, Rescue can't); on the owner's PC with this build. It replaced the signed PCR 11 policy, which never passed on the owner's PC |
 | OS-Test-4 | Driver signatures and lockdown | With the standard kernel's own options (D23), unsigned or pre-strip-signed `.ko` files are refused with `-EKEYREJECTED` under `lockdown=integrity`, and every driver Asima OS ships loads | 🟢 beta 5 in QEMU: lockdown (integrity) on, the signed NVIDIA driver passes the check; an unsigned module was not provoked |
 | OS-Test-5 | Panic, freeze, broken login screen | `panic=10`, the watchdog (`RuntimeWatchdogSec=30s`) and the `+3-0` counter fall back to the previous version cleanly | ✅ beta 5 in QEMU (`--iso --update`): a kernel crash and a total freeze during trial starts, then a good third try; a broken update (no login screen) tried 3 times, then the backup starts and becomes current again |
 | OS-Test-6 | Blessing at the login screen | An unattended start is marked good once the plasma-login-manager screen (D11) has stayed up for 15 s | ✅ beta 3 in QEMU: `asimaos-desktop-health` marks a start good after the login screen stayed up 15 s |
@@ -124,7 +124,7 @@ Gates prove the risky mechanics before the parts that depend on them are built.
 | SysApp-Test-5 | Asima Maintenance: health | Panic, hard freeze or broken login screen | Watchdog and boot counting fall back; Asima Health keeps the pstore crash log | ✅ beta 5 in QEMU: boot counting, the health checks and the watchdog fall back; Asima Maintenance → Health lists the failed starts and the kernel crash log |
 | SysApp-Test-6 | Asima Maintenance: reset | Factory reset (D13: one reset) | The computer is a fresh installation of the current version, with the account chosen beforehand, new disk keys and nothing else kept: language, keyboard (also at start-up), time zone and computer name are the shipped ones | ✅ beta 5 in QEMU (`--reset`): staged in Asima Maintenance, run at the start: only the fresh account, nothing old, the same version, the old passphrase refused |
 | SysApp-Test-7 | Asima Maintenance: backups | A damaged single-copy file | Scrub reports it; restic restores it | 🟡 beta 3: scrub reports damaged files, restic backups with a restore test pass the service tests; the damaged-file scenario not run |
-| SysApp-Test-8 | Asima Maintenance: security | Recovery key and TPM key rotation | The recovery key is tested before anything else; the old TPM slot stays until a restart proves the new one | 🟡 QEMU (2026.11.24.1): TPM set-up and unlock, the recovery key at install; the two-step rotation is built, its check failed once and is fixed, to test again |
+| SysApp-Test-8 | Asima Maintenance: security | Recovery key and TPM key rotation | The recovery key is tested before anything else; the old TPM slot stays until a restart proves the new one | 🟢 QEMU (2026.11.25.1): TPM set-up and unlock, the recovery key at install, and the two-step rotation (the new slot tried at once, the old one gone after the next start); on the owner's PC next |
 | SysApp-Test-9 | Asima Rescue | Start in RAM from the ESP; reinstall from a USB update file | Starts without the installed `/usr`, unlocks the pool, reinstalls Asima OS | ✅ beta 5 in QEMU (`--rescue`): Rescue starts from RAM, unlocks with the passphrase, reinstalls from a USB drive, Asima OS starts verified afterwards; it can't unseal the TPM key |
 | SysApp-Test-10 | Asima Manager: Shield; Asima Gaming: GPUs | Firewall zone switch; two GPUs; external monitor brightness | The nftables zone switches atomically; GPU switching and `ddcutil` work | 🟡 zones applied by the service (service tests, and at every start in the boot tests); hardware parts not tested |
 | SysApp-Test-11 | Asima Maintenance: Flatpak; Asima Manager: power | Flatpak cache in RAM; 80 % charge limit, or Lenovo's battery care | Sandboxed apps use `<app ID>/cache`; charging stops at the limit, also after a restart | 🟡 the charge limit and Lenovo's battery care (service checks on a test tree); didn't work on the owner's Lenovo with 2026.11.21.1, fixed for the next build; the Flatpak cache not tested |
@@ -185,18 +185,21 @@ Gates prove the risky mechanics before the parts that depend on them are built.
 
 ## 8. Automated suites
 
-| Suite | Runs | Result (build 2026.11.21.1, 2026-11-21) |
+| Suite | Runs | Result (build 2026.11.25.1, 2026-11-25) |
 | --- | --- | --- |
-| `testbed/boot-test.py` | Disk image in QEMU: checks (Snap, Nix, Waydroid's binder, the disk guard, `/boot` closed, the `asimaos` command, the start marked good), restart, persistence, Asima Rescue started once | 43/43 |
-| `testbed/boot-test.py --trust` | Firmware with only the 2023 CA, the Asima OS key as a MOK, swtpm: lockdown, the signed NVIDIA driver, the start-up keyboard layout, TPM unlock with the pcrlock policy (D43), automatically and with a PIN (D49); Rescue can't unseal | 12/12 (2026.11.21.1); 13/15 with the pcrlock policy (2026.11.24.1: setting TPM unlock up again failed, fixed since) |
+| `testbed/boot-test.py` | Disk image in QEMU: checks (Snap, Nix, Waydroid's binder, the disk guard, `/boot` closed, the `asimaos` command, the start marked good), restart, persistence, Asima Rescue started once | 45/45 |
+| `testbed/boot-test.py --trust` | Firmware with only the 2023 CA, the Asima OS key as a MOK, swtpm: lockdown, the signed NVIDIA driver, the start-up keyboard layout, TPM unlock with the pcrlock policy (D43), automatically and with a PIN (D49); Rescue can't unseal | 19/19 (the first run found the TPM not measured once; a second boot and the rerun were clean) |
 | `testbed/boot-test.py --secureboot` | Secure Boot enforced (Microsoft's keys + the build's certificate in db) | 18/18 |
-| `testbed/boot-test.py --repair` | ESP formatted, an account deleted; `asimaos-repair` from the USB stick | 4/4 |
-| `testbed/boot-test.py --reset` | The factory reset at the start | 4/4 |
+| `testbed/boot-test.py --own-keys` | Own Secure Boot keys written into the firmware, the old certificates left out; Asima OS still starts | 4/4 |
+| `testbed/boot-test.py --repair` | ESP formatted, an account deleted; `asimaos-repair` from the USB stick installs its version and brings the settings and accounts back | 4/4 |
+| `testbed/boot-test.py --reset` | Reset settings, then the factory reset at the start: a fresh account, new disk secrets, the shipped name, keyboard and time zone | 7/7 |
 | `testbed/boot-test.py --rescue` | Asima Rescue: unlock, reinstall from a USB drive | 3/3 |
-| `testbed/boot-test.py --flathub` | An app from Flathub (internet) | 3/3 |
+| `testbed/boot-test.py --flathub` | An app from Flathub (internet) | not run on this build; 3/3 on 2026.11.21.1 |
+| `testbed/boot-test.py --iso` | Live session → encrypted install → installed system → restart | 59/59 |
+| `testbed/boot-test.py --iso --plain` | Live session → install without encryption (D9) → installed system → restart | 59/59 |
 | `testbed/boot-test.py --iso --update V2 V3` | Encrypted install → power cut during the update → crash and freeze during trial starts → going back and forward → the broken V3 falls back by itself; failed starts and the crash log listed | not run on this build yet; 79/79 on Beta 5 |
-| `testbed/boot-test.py --iso --plain` | Live session → install without encryption (D9) → installed system → restart | 57/57 |
-| `apps/build.sh services-test` | 29 unit tests; `asimaos-updaterd`, `asimaos-maintenanced`, `asimaos-managerd`, `asimaos-gamingd`, `asimaos-faced` end to end; each app against its service; Asima Hub's feed and Get Asima OS | all passed (139 checks, 2026-11-21) |
+| `apps/build.sh services-test` | 61 unit tests; `asimaos-updaterd`, `asimaos-maintenanced` (backups with restic included), `asimaos-managerd`, `asimaos-gamingd`, `asimaos-faced` end to end; each app against its service | all passed (61 unit tests, 130 checks) |
+| Asima Hub: `./build.sh test` (its own repository) | The feed's signature, the PC check, writing the USB stick | all passed |
 
 ## 9. On real hardware
 
